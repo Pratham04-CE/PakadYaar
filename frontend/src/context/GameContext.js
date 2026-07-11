@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import socket from '../socket/socket';
-
+//Game context
 const GameContext = createContext(null);
 
 export function GameProvider({ children }) {
