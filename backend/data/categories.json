@@ -1,0 +1,12 @@
+[
+  { "id": "food",       "name": "Food",              "emoji": "🍕" },
+  { "id": "animals",   "name": "Animals",            "emoji": "🐶" },
+  { "id": "movies",    "name": "Movies",             "emoji": "🎬" },
+  { "id": "sports",    "name": "Sports",             "emoji": "⚽" },
+  { "id": "countries", "name": "Countries",          "emoji": "🌍" },
+  { "id": "technology","name": "Technology",         "emoji": "📱" },
+  { "id": "music",     "name": "Music",              "emoji": "🎵" },
+  { "id": "games",     "name": "Games",              "emoji": "🎮" },
+  { "id": "general",   "name": "General Knowledge",  "emoji": "📚" },
+  { "id": "mixed",     "name": "Mixed",              "emoji": "🎭" }
+]
