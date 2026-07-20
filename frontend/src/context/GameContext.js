@@ -211,14 +211,24 @@ export function GameProvider({ children }) {
                 setError('Microphone permission denied or device unavailable.');
                 return false;
             }
-            socket.emit('join-voice');
         }
 
         const isMuted = voiceChat.toggleMic();
         setIsMicOn(!isMuted);
         socket.emit('voice-mute-status', { isMuted });
+        socket.emit('join-voice');
+
+        // Initiate WebRTC peer connections with all room members
+        if (room && room.players) {
+            room.players.forEach(p => {
+                if (p.id !== socket.id) {
+                    voiceChat.createPeerConnection(p.id, socket, true);
+                }
+            });
+        }
+
         return !isMuted;
-    }, []);
+    }, [room]);
 
     // ─── Outbound actions ─────────────────────────────────────────────────────
     const createRoom = useCallback((playerName) => {
