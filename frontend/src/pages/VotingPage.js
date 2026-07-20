@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '../context/GameContext';
+import sound from '../utils/sound';
 
 export default function VotingPage() {
   const { room, myId, timer, voteData, castVote } = useGame();
@@ -10,7 +11,7 @@ export default function VotingPage() {
   const remaining = timer?.remaining ?? 0;
   const total = timer?.total ?? room?.config?.votingTime ?? 60;
   const progress = remaining / total;
-  const isUrgent = remaining <= 10;
+  const isUrgent = remaining <= 15;
 
   const myVoteTargetId = voteData[myId];
   const hasVoted = !!myVoteTargetId;
@@ -27,6 +28,7 @@ export default function VotingPage() {
 
   function handleVote(targetId) {
     if (hasVoted || targetId === myId) return;
+    sound.cardSelect();
     castVote(targetId);
   }
 

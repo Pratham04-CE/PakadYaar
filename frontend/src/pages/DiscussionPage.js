@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '../context/GameContext';
 import wordsData from '../data/words.json';
+import sound from '../utils/sound';
 
 function resolveWordInfo(myWord, roomConfig = {}) {
   if (!myWord) return null;
@@ -166,12 +167,16 @@ export default function DiscussionPage() {
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-white/40 text-xs font-medium">Your Secret Word</span>
                   <button
-                    onClick={() => setShowDetails(!showDetails)}
+                    onClick={() => {
+                      sound.cardFlip();
+                      setShowDetails(!showDetails);
+                    }}
                     className="text-xs text-primary-300 hover:text-primary-200 font-semibold underline flex items-center gap-1 cursor-pointer"
                   >
                     {showDetails ? 'Hide Details ▲' : 'Show Meaning & Hints ▼'}
                   </button>
                 </div>
+
 
                 <div className="text-2xl font-black text-primary-300">
                   {wordInfo.word}

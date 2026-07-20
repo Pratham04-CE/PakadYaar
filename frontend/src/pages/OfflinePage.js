@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import wordsData from '../data/words.json';
+import sound from '../utils/sound';
 
 const CATEGORIES = [
   { id: 'food',       name: 'Food',             emoji: '🍕' },
@@ -112,11 +113,16 @@ export default function OfflinePage() {
     setVotes({});
     setResults(null);
     setPhase(OFFLINE_PHASES.REVEAL);
+    sound.start();
   }
 
-  function revealWord() { setWordVisible(true); }
+  function revealWord() {
+    sound.reveal();
+    setWordVisible(true);
+  }
 
   function confirmAndNext() {
+    sound.click();
     if (revealIndex + 1 < assignments.length) {
       setRevealIndex(i => i + 1);
       setWordVisible(false);
@@ -124,17 +130,20 @@ export default function OfflinePage() {
     } else {
       // All players have seen their word
       setPhase(OFFLINE_PHASES.GAME);
+      sound.start();
       let t = config.discussionTime;
       setTimer(t);
       const iv = setInterval(() => {
         t--;
         setTimer(t);
-        if (t <= 0) { clearInterval(iv); setPhase(OFFLINE_PHASES.VOTE); }
+        if (t <= 10 && t > 0) sound.tick();
+        if (t <= 0) { clearInterval(iv); setPhase(OFFLINE_PHASES.VOTE); sound.start(); }
       }, 1000);
     }
   }
 
   function castVote(voterName, targetName) {
+    sound.vote();
     const newVotes = { ...votes, [voterName]: targetName };
     setVotes(newVotes);
     if (Object.keys(newVotes).length >= assignments.length) {
@@ -152,9 +161,12 @@ export default function OfflinePage() {
     const eliminatedAssign = assignments.find(a => a.name === eliminated);
     const isImposter = eliminatedAssign?.isImposter ?? false;
 
+    if (isImposter) sound.victory(); else sound.defeat();
+
     setResults({ counts, eliminated, isImposter, assignments });
     setPhase(OFFLINE_PHASES.RESULTS);
   }
+
 
   const formatTime = s => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '../context/GameContext';
 import wordsData from '../data/words.json';
+import sound from '../utils/sound';
 
 function resolveWordInfo(myWord, roomConfig = {}) {
   if (!myWord) return null;
@@ -61,12 +62,15 @@ export default function WordRevealPage() {
   const allConfirmed = confirmedCount >= totalPlayers;
 
   function handleReveal() {
+    sound.reveal();
     setRevealed(true);
   }
 
   function handleConfirm() {
+    sound.click();
     confirmWord();
   }
+
 
   const hints = wordInfo?.hints || [];
   const difficulty = wordInfo?.difficulty || 'easy';
@@ -182,7 +186,10 @@ export default function WordRevealPage() {
               </span>
               {revealedHintCount < hints.length && (
                 <button
-                  onClick={() => setRevealedHintCount(c => c + 1)}
+                  onClick={() => {
+                    sound.hint();
+                    setRevealedHintCount(c => c + 1);
+                  }}
                   className="text-xs text-primary-300 bg-primary-500/20 hover:bg-primary-500/30 px-3 py-1 rounded-full border border-primary-500/30 transition-all"
                 >
                   + Unlock Hint

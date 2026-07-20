@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import socket from '../socket/socket';
+import sound from '../utils/sound';
+
 //Game context
 const GameContext = createContext(null);
 
@@ -74,6 +76,7 @@ export function GameProvider({ children }) {
             setHasConfirmedWord(false);
             setDrawMessage(null);
             setGamePhase('word-reveal');
+            sound.start();
         });
 
         socket.on('your-word', (assignment) => {
@@ -89,37 +92,51 @@ export function GameProvider({ children }) {
             setTimer({ remaining, phase: 'discussion', total: duration });
             setGamePhase('discussion');
             setDrawMessage(null);
+            sound.start();
         });
 
         socket.on('timer-tick', ({ remaining, phase }) => {
             setTimer(prev => prev ? { ...prev, remaining } : { remaining, phase });
+            if (remaining <= 15 && remaining > 0) {
+                sound.tick(remaining);
+            }
         });
 
         socket.on('voting-started', ({ duration, remaining }) => {
             setTimer({ remaining, phase: 'voting', total: duration });
             setVoteData({});
             setGamePhase('voting');
+            sound.start();
         });
 
         socket.on('vote-cast', ({ voterId, targetId, totalVotes, expectedVotes }) => {
             setVoteData(prev => ({ ...prev, [voterId]: targetId }));
+            sound.vote();
         });
 
         socket.on('vote-draw', ({ message }) => {
             setDrawMessage(message);
             setGamePhase('discussion');
+            sound.draw();
         });
 
         socket.on('vote-results', (data) => {
             setResults(data);
             setRoom(prev => prev ? { ...prev, players: data.scores } : prev);
             setGamePhase('results');
+            if (data.winnerSide === 'players') {
+                sound.victory();
+            } else {
+                sound.defeat();
+            }
         });
 
         socket.on('game-over', (data) => {
             setFinalResults(data);
             setGamePhase('game-over');
+            sound.victory();
         });
+
 
         socket.on('game-reset', ({ room }) => {
             setRoom(room);

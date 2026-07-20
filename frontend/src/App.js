@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { GameProvider, useGame } from './context/GameContext';
+import sound from './utils/sound';
 
 // Pages
 import HomePage from './pages/HomePage';
@@ -19,23 +20,48 @@ function PhaseRouter() {
   const { gamePhase } = useGame();
 
   switch (gamePhase) {
-    case 'home':       return <HomePage />;
-    case 'lobby':      return <LobbyPage />;
+    case 'home':         return <HomePage />;
+    case 'lobby':        return <LobbyPage />;
     case 'waiting-room': return <WaitingRoomPage />;
     case 'word-reveal':  return <WordRevealPage />;
     case 'discussion':   return <DiscussionPage />;
     case 'voting':       return <VotingPage />;
     case 'results':      return <ResultsPage />;
     case 'game-over':    return <GameOverPage />;
-    default:           return <HomePage />;
+    default:             return <HomePage />;
   }
+}
+
+function SoundToggle() {
+  const [muted, setMuted] = useState(sound.isMuted());
+
+  function toggle() {
+    const isNowMuted = sound.toggleMute();
+    setMuted(isNowMuted);
+    if (!isNowMuted) {
+      sound.click();
+    }
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      title={muted ? "Unmute Sound" : "Mute Sound"}
+      className="fixed top-4 right-4 z-50 w-11 h-11 rounded-full glass flex items-center justify-center text-xl shadow-lg border border-white/10 hover:border-white/30 transition-all active:scale-95 cursor-pointer select-none"
+    >
+      {muted ? '🔇' : '🔊'}
+    </button>
+  );
 }
 
 function App() {
   return (
     <BrowserRouter>
       <GameProvider>
-        <div className="min-h-screen bg-dark-900">
+        <div className="min-h-screen bg-dark-900 relative">
+          {/* Sound Toggle Floating Button */}
+          <SoundToggle />
+
           {/* Ambient background orbs */}
           <div className="fixed inset-0 overflow-hidden pointer-events-none">
             <div className="absolute top-[-20%] left-[-10%] w-96 h-96 bg-primary-700/20 rounded-full blur-3xl animate-pulse-slow" />

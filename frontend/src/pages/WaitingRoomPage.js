@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '../context/GameContext';
+import sound from '../utils/sound';
 
 const CATEGORIES = [
   { id: 'food',       name: 'Food',             emoji: '🍕' },
@@ -28,7 +29,6 @@ const LANGUAGES = [
   { id: 'gu', name: 'Gujarati (ગુજરાતી)', flag: '🇮🇳' },
 ];
 
-
 export default function WaitingRoomPage() {
   const { room, myId, isHost, updateConfig, startGame, leaveRoom, error } = useGame();
   const [copied, setCopied] = useState(false);
@@ -43,6 +43,7 @@ export default function WaitingRoomPage() {
   }
 
   function handleConfigChange(key, value) {
+    sound.cardSelect();
     updateConfig({ [key]: value });
   }
 
