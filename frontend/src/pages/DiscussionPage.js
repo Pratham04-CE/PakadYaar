@@ -44,7 +44,7 @@ function resolveWordInfo(myWord, roomConfig = {}) {
 }
 
 export default function DiscussionPage() {
-  const { room, myWord, timer, myId, drawMessage } = useGame();
+  const { room, myWord, timer, myId, drawMessage, isMicOn, peerMutedMap } = useGame();
   const [showDetails, setShowDetails] = useState(false);
 
   if (!room) return null;
@@ -250,53 +250,68 @@ export default function DiscussionPage() {
               </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {room.players.map((player, i) => (
-                  <motion.div
-                    key={player.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    className={`
-                      flex items-center gap-3 p-4 rounded-xl border transition-all
-                      ${player.id === myId
-                        ? 'border-primary-500/40 bg-primary-500/10'
-                        : 'border-white/5 bg-white/3'
-                      }
-                    `}
-                  >
-                    <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-                      style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}
+                {room.players.map((player, i) => {
+                  const playerMicOn = player.id === myId ? isMicOn : peerMutedMap[player.id] === false;
+                  return (
+                    <motion.div
+                      key={player.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      className={`
+                        flex items-center gap-3 p-4 rounded-xl border transition-all
+                        ${player.id === myId
+                          ? 'border-primary-500/40 bg-primary-500/10'
+                          : 'border-white/5 bg-white/3'
+                        }
+                      `}
                     >
-                      {player.avatar?.initial || player.name[0]}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-white">{player.name}</span>
-                        {player.id === myId && (
-                          <span className="text-xs text-primary-400 bg-primary-500/20 px-1.5 py-0.5 rounded-full">You</span>
-                        )}
-                        {player.isHost && (
-                          <span className="text-xs text-accent-400">👑</span>
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                        style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}
+                      >
+                        {player.avatar?.initial || player.name[0]}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-white">{player.name}</span>
+                          {player.id === myId && (
+                            <span className="text-xs text-primary-400 bg-primary-500/20 px-1.5 py-0.5 rounded-full">You</span>
+                          )}
+                          {player.isHost && (
+                            <span className="text-xs text-accent-400">👑</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-white/30 mt-0.5">
+                          Score: {player.score || 0} pts
+                        </div>
+                      </div>
+
+                      {/* Mic Status & Talking Indicator */}
+                      <div className="flex items-center gap-1.5">
+                        {playerMicOn ? (
+                          <div className="flex items-center gap-1 bg-green-500/20 text-green-400 border border-green-500/30 px-2 py-0.5 rounded-full text-xs font-semibold">
+                            <span>🎤</span>
+                            <div className="flex gap-0.5 items-end h-3">
+                              {[1, 2, 3].map(b => (
+                                <motion.div
+                                  key={b}
+                                  className="w-0.5 bg-green-400 rounded-full"
+                                  animate={{ height: [`${b * 3}px`, `${10 - b * 2}px`, `${b * 3}px`] }}
+                                  transition={{ repeat: Infinity, duration: 0.6 + b * 0.15, ease: 'easeInOut' }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-white/30 bg-white/5 px-2 py-0.5 rounded-full">
+                            🔇
+                          </span>
                         )}
                       </div>
-                      <div className="text-xs text-white/30 mt-0.5">
-                        Score: {player.score || 0} pts
-                      </div>
-                    </div>
-                    {/* Talking indicator (decorative) */}
-                    <div className="flex gap-0.5 items-end h-4">
-                      {[1, 2, 3].map(b => (
-                        <motion.div
-                          key={b}
-                          className="w-1 bg-accent-500/50 rounded-full"
-                          animate={{ height: [`${b * 4}px`, `${12 - b * 2}px`, `${b * 4}px`] }}
-                          transition={{ repeat: Infinity, duration: 0.8 + b * 0.2, ease: 'easeInOut' }}
-                        />
-                      ))}
-                    </div>
-                  </motion.div>
-                ))}
+                    </motion.div>
+                  );
+                })}
               </div>
 
               {/* Rules reminder */}

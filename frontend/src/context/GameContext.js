@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import socket from '../socket/socket';
 import sound from '../utils/sound';
+import voiceChat from '../utils/voiceChat';
 
 //Game context
 const GameContext = createContext(null);
@@ -18,6 +19,10 @@ export function GameProvider({ children }) {
     const [confirmedCount, setConfirmedCount] = useState(0);
     const [hasConfirmedWord, setHasConfirmedWord] = useState(false);
     const [drawMessage, setDrawMessage] = useState(null);
+
+    // Voice chat state
+    const [isMicOn, setIsMicOn] = useState(false);
+    const [peerMutedMap, setPeerMutedMap] = useState({}); // socketId -> isMuted
 
     // Track socket ID
     useEffect(() => {
@@ -62,7 +67,29 @@ export function GameProvider({ children }) {
         });
 
         socket.on('player-left', ({ playerId }) => {
-            // room-updated handles the player list; playerId here for UI hints
+            voiceChat.closePeerConnection(playerId);
+            setPeerMutedMap(prev => {
+                const next = { ...prev };
+                delete next[playerId];
+                return next;
+            });
+        });
+
+        // VOICE CHAT events
+        socket.on('user-joined-voice', ({ playerId }) => {
+            if (playerId !== socket.id) {
+                voiceChat.createPeerConnection(playerId, socket, true);
+            }
+        });
+
+        socket.on('voice-signal', ({ senderId, signal }) => {
+            if (senderId !== socket.id) {
+                voiceChat.handleSignal(senderId, signal, socket);
+            }
+        });
+
+        socket.on('voice-mute-status', ({ playerId, isMuted }) => {
+            setPeerMutedMap(prev => ({ ...prev, [playerId]: isMuted }));
         });
 
         // GAME events
@@ -137,7 +164,6 @@ export function GameProvider({ children }) {
             sound.victory();
         });
 
-
         socket.on('game-reset', ({ room }) => {
             setRoom(room);
             setMyWord(null);
@@ -160,6 +186,9 @@ export function GameProvider({ children }) {
             socket.off('start-error');
             socket.off('error');
             socket.off('player-left');
+            socket.off('user-joined-voice');
+            socket.off('voice-signal');
+            socket.off('voice-mute-status');
             socket.off('game-started');
             socket.off('your-word');
             socket.off('word-confirmed');
@@ -172,6 +201,23 @@ export function GameProvider({ children }) {
             socket.off('game-over');
             socket.off('game-reset');
         };
+    }, []);
+
+    // ─── Voice Chat Action ──────────────────────────────────────────────────
+    const toggleMic = useCallback(async () => {
+        if (!voiceChat.isInitialized()) {
+            const stream = await voiceChat.startLocalStream();
+            if (!stream) {
+                setError('Microphone permission denied or device unavailable.');
+                return false;
+            }
+            socket.emit('join-voice');
+        }
+
+        const isMuted = voiceChat.toggleMic();
+        setIsMicOn(!isMuted);
+        socket.emit('voice-mute-status', { isMuted });
+        return !isMuted;
     }, []);
 
     // ─── Outbound actions ─────────────────────────────────────────────────────
@@ -187,6 +233,9 @@ export function GameProvider({ children }) {
 
     const leaveRoom = useCallback(() => {
         socket.emit('leave-room');
+        voiceChat.closeAll();
+        setIsMicOn(false);
+        setPeerMutedMap({});
         setRoom(null);
         setMyWord(null);
         setResults(null);
@@ -247,6 +296,10 @@ export function GameProvider({ children }) {
         drawMessage,
         isHost,
         myPlayer,
+        // Voice Chat
+        isMicOn,
+        peerMutedMap,
+        toggleMic,
         // Actions
         createRoom,
         joinRoom,

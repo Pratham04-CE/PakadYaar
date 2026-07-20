@@ -2,6 +2,7 @@ const { Server } = require("socket.io");
 
 const roomHandler = require("./roomHandler");
 const gameHandler = require("./gameHandler");
+const voiceHandler = require("./voiceHandler");
 
 function initializeSocket(server) {
 
@@ -18,6 +19,7 @@ function initializeSocket(server) {
         // Register event handlers
         roomHandler(io, socket);
         gameHandler(io, socket);
+        voiceHandler(io, socket);
 
         socket.on("disconnect", () => {
             console.log(`Player Disconnected : ${socket.id}`);

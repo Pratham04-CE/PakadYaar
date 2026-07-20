@@ -54,12 +54,39 @@ function SoundToggle() {
   );
 }
 
+function MicToggle() {
+  const { room, isMicOn, toggleMic } = useGame();
+
+  if (!room) return null;
+
+  return (
+    <button
+      onClick={() => {
+        sound.click();
+        toggleMic();
+      }}
+      title={isMicOn ? "Mute Microphone" : "Turn On Microphone"}
+      className={`
+        fixed top-4 right-17 z-50 w-11 h-11 rounded-full flex items-center justify-center text-xl shadow-lg border
+        transition-all active:scale-95 cursor-pointer select-none
+        ${isMicOn
+          ? 'bg-green-500/20 border-green-500/50 text-green-400 glow-teal animate-pulse'
+          : 'glass border-white/10 hover:border-white/30 text-white/40'
+        }
+      `}
+    >
+      {isMicOn ? '🎤' : '🎙️'}
+    </button>
+  );
+}
+
 function App() {
   return (
     <BrowserRouter>
       <GameProvider>
         <div className="min-h-screen bg-dark-900 relative">
-          {/* Sound Toggle Floating Button */}
+          {/* Sound & Mic Controls */}
+          <MicToggle />
           <SoundToggle />
 
           {/* Ambient background orbs */}

@@ -30,7 +30,7 @@ const LANGUAGES = [
 ];
 
 export default function WaitingRoomPage() {
-  const { room, myId, isHost, updateConfig, startGame, leaveRoom, error } = useGame();
+  const { room, myId, isHost, updateConfig, startGame, leaveRoom, error, isMicOn, peerMutedMap } = useGame();
   const [copied, setCopied] = useState(false);
 
   if (!room) return null;
@@ -140,6 +140,15 @@ export default function WaitingRoomPage() {
                         )}
                       </div>
                     </div>
+
+                    {/* Mic Status Badge */}
+                    <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1 font-medium ${
+                      (player.id === myId ? isMicOn : peerMutedMap[player.id] === false)
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                        : 'bg-white/5 text-white/30'
+                    }`}>
+                      {(player.id === myId ? isMicOn : peerMutedMap[player.id] === false) ? '🎤 On' : '🔇 Muted'}
+                    </span>
                   </motion.div>
                 ))}
               </AnimatePresence>
