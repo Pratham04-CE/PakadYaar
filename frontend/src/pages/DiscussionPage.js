@@ -1,11 +1,54 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '../context/GameContext';
+import wordsData from '../data/words.json';
+
+function resolveWordInfo(myWord, roomConfig = {}) {
+  if (!myWord) return null;
+
+  const lang = roomConfig?.language || 'en';
+  let wordText = myWord.word || '';
+  let meaningText = myWord.meaningText || '';
+  let translationText = myWord.translationText || '';
+  let hints = Array.isArray(myWord.hints) && myWord.hints.length > 0 ? myWord.hints : [];
+  let translations = myWord.translations || {};
+
+  // Fallback search in wordsData if missing meanings or hints
+  if (!meaningText || hints.length === 0) {
+    for (const cat in wordsData) {
+      for (const pair of wordsData[cat]) {
+        const matchWord = pair.word?.text === wordText ? pair.word : pair.imposterWord?.text === wordText ? pair.imposterWord : null;
+        if (matchWord) {
+          meaningText = meaningText || matchWord.meaning?.[lang] || matchWord.meaning?.en || '';
+          hints = hints.length > 0 ? hints : (matchWord.hints || []);
+          translations = Object.keys(translations).length > 0 ? translations : (matchWord.translations || {});
+          break;
+        }
+      }
+      if (meaningText && hints.length > 0) break;
+    }
+  }
+
+  if (!translationText && translations) {
+    translationText = translations[lang] || translations.hi || translations.gu || '';
+  }
+
+  return {
+    word: wordText,
+    meaningText,
+    translationText,
+    translations,
+    hints
+  };
+}
 
 export default function DiscussionPage() {
   const { room, myWord, timer, myId, drawMessage } = useGame();
+  const [showDetails, setShowDetails] = useState(false);
 
   if (!room) return null;
+
+  const wordInfo = resolveWordInfo(myWord, room.config);
 
   const remaining = timer?.remaining ?? 0;
   const total = timer?.total ?? room?.config?.discussionTime ?? 120;
@@ -112,18 +155,86 @@ export default function DiscussionPage() {
               </div>
             </div>
 
-            {/* My word reminder */}
-            {myWord && (
+            {/* My word & clues drawer */}
+            {wordInfo && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="mt-4 w-full glass p-4 text-center"
+                className="mt-4 w-full glass p-4 text-center rounded-2xl"
               >
-                <p className="text-white/40 text-xs mb-1">Your word</p>
-                <p className="text-xl font-bold text-primary-300">{myWord.word}</p>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-white/40 text-xs font-medium">Your Secret Word</span>
+                  <button
+                    onClick={() => setShowDetails(!showDetails)}
+                    className="text-xs text-primary-300 hover:text-primary-200 font-semibold underline flex items-center gap-1 cursor-pointer"
+                  >
+                    {showDetails ? 'Hide Details ▲' : 'Show Meaning & Hints ▼'}
+                  </button>
+                </div>
+
+                <div className="text-2xl font-black text-primary-300">
+                  {wordInfo.word}
+                  {wordInfo.translationText && wordInfo.translationText !== wordInfo.word && (
+                    <span className="text-base font-semibold text-accent-300 ml-2">({wordInfo.translationText})</span>
+                  )}
+                </div>
+
+                <AnimatePresence>
+                  {showDetails && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -5 }}
+                      className="mt-3 text-left border-t border-white/10 pt-3 space-y-3"
+                    >
+                      {/* Translations */}
+                      {wordInfo.translations && (
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-primary-400 block mb-1">Translations:</span>
+                          <div className="flex gap-3 text-xs text-white/70">
+                            {wordInfo.translations.hi && (
+                              <span>🇮🇳 Hindi: <strong className="text-white">{wordInfo.translations.hi}</strong></span>
+                            )}
+                            {wordInfo.translations.gu && (
+                              <span>🇮🇳 Gujarati: <strong className="text-white">{wordInfo.translations.gu}</strong></span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Definition */}
+                      {wordInfo.meaningText && (
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-white/40 block mb-0.5">Meaning / Definition:</span>
+                          <p className="text-xs text-white/90 italic bg-white/5 p-2.5 rounded-xl border border-white/5">
+                            "{wordInfo.meaningText}"
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Hints */}
+                      {wordInfo.hints && wordInfo.hints.length > 0 && (
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-amber-400 block mb-1.5 flex items-center gap-1">
+                            <span>💡</span> Secret Hints ({wordInfo.hints.length}):
+                          </span>
+                          <div className="space-y-1.5">
+                            {wordInfo.hints.map((hint, idx) => (
+                              <div key={idx} className="text-xs text-amber-200 bg-amber-500/10 px-2.5 py-1.5 rounded-xl border border-amber-500/20 flex items-start gap-2">
+                                <span className="font-bold text-amber-400">#{idx + 1}</span>
+                                <span>{hint}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             )}
+
           </div>
 
           {/* Players */}

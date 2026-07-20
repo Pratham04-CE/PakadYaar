@@ -15,6 +15,20 @@ const CATEGORIES = [
   { id: 'mixed',     name: 'Mixed',             emoji: '🎭' },
 ];
 
+const DIFFICULTIES = [
+  { id: 'all',    name: 'All Levels', emoji: '🎲' },
+  { id: 'easy',   name: 'Easy',       emoji: '🟢' },
+  { id: 'medium', name: 'Medium',     emoji: '🟡' },
+  { id: 'hard',   name: 'Hard',       emoji: '🔴' },
+];
+
+const LANGUAGES = [
+  { id: 'en', name: 'English', flag: '🇬🇧' },
+  { id: 'hi', name: 'Hindi (हिंदी)', flag: '🇮🇳' },
+  { id: 'gu', name: 'Gujarati (ગુજરાતી)', flag: '🇮🇳' },
+];
+
+
 export default function WaitingRoomPage() {
   const { room, myId, isHost, updateConfig, startGame, leaveRoom, error } = useGame();
   const [copied, setCopied] = useState(false);
@@ -174,6 +188,59 @@ export default function WaitingRoomPage() {
                   ))}
                 </div>
               </div>
+
+              {/* Difficulty */}
+              <div>
+                <label className="block text-sm text-white/60 mb-2">Difficulty</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {DIFFICULTIES.map(d => (
+                    <button
+                      key={d.id}
+                      disabled={!isHost}
+                      onClick={() => handleConfigChange('difficulty', d.id)}
+                      className={`
+                        flex items-center justify-center gap-1.5 p-2 rounded-xl border text-xs font-semibold
+                        transition-all duration-200
+                        ${(cfg.difficulty || 'all') === d.id
+                          ? 'bg-accent-600/30 border-accent-500/60 text-white'
+                          : 'border-white/10 text-white/50 hover:border-white/20 hover:text-white/80'
+                        }
+                        ${!isHost ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                      `}
+                    >
+                      <span>{d.emoji}</span>
+                      <span>{d.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Language */}
+              <div>
+                <label className="block text-sm text-white/60 mb-2">Game Language</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {LANGUAGES.map(lang => (
+                    <button
+                      key={lang.id}
+                      disabled={!isHost}
+                      onClick={() => handleConfigChange('language', lang.id)}
+                      className={`
+                        flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-semibold
+                        transition-all duration-200
+                        ${(cfg.language || 'en') === lang.id
+                          ? 'bg-primary-600/30 border-primary-500/60 text-white'
+                          : 'border-white/10 text-white/50 hover:border-white/20 hover:text-white/80'
+                        }
+                        ${!isHost ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                      `}
+                    >
+                      <span>{lang.flag}</span>
+                      <span className="truncate">{lang.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
 
               {/* Rounds */}
               <ConfigSlider

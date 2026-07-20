@@ -101,38 +101,50 @@ export default function ResultsPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.5 + i * 0.05 }}
                   className={`
-                    flex items-center justify-between p-3 rounded-xl border
+                    flex flex-col p-3 rounded-xl border gap-2
                     ${isImposter
                       ? 'border-rose-500/40 bg-rose-500/10'
                       : 'border-white/5 bg-white/3'
                     }
                   `}
                 >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0"
-                      style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}
-                    >
-                      {player.avatar?.initial || player.name[0]}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0"
+                        style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}
+                      >
+                        {player.avatar?.initial || player.name[0]}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-white text-sm">{player.name}</span>
+                          {player.id === myId && <span className="text-xs text-primary-400">(You)</span>}
+                          {isImposter && <span className="text-rose-400 text-xs">🎭 Imposter</span>}
+                        </div>
+                        <div className={`text-xs font-bold mt-0.5 ${isImposter ? 'text-rose-300' : 'text-accent-300'}`}>
+                          Word: {assignment?.word || '?'}
+                          {assignment?.translationText && assignment.translationText !== assignment.word && (
+                            <span className="text-white/60 ml-1">({assignment.translationText})</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-semibold text-white text-sm">{player.name}</span>
-                        {player.id === myId && <span className="text-xs text-primary-400">(You)</span>}
-                        {isImposter && <span className="text-rose-400 text-xs">🎭 Imposter</span>}
-                      </div>
-                      <div className={`text-xs font-bold mt-0.5 ${isImposter ? 'text-rose-300' : 'text-accent-300'}`}>
-                        Word: {assignment?.word || '?'}
-                      </div>
+                    <div className="text-right text-xs text-white/30">
+                      {voteCounts[player.id] || 0} votes
                     </div>
                   </div>
-                  <div className="text-right text-xs text-white/30">
-                    {voteCounts[player.id] || 0} votes
-                  </div>
+
+                  {assignment?.meaningText && (
+                    <div className="text-[11px] text-white/60 italic bg-black/20 px-2.5 py-1.5 rounded-lg">
+                      "{assignment.meaningText}"
+                    </div>
+                  )}
                 </motion.div>
               );
             })}
           </div>
+
         </motion.div>
 
         {/* Scoreboard */}

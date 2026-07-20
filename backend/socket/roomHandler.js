@@ -8,9 +8,12 @@ const DEFAULT_CONFIG = {
     rounds: 3,
     imposters: 1,
     category: 'food',
+    difficulty: 'all',
+    language: 'en',
     discussionTime: 120,
     votingTime: 60
 };
+
 
 function roomHandler(io, socket) {
 
