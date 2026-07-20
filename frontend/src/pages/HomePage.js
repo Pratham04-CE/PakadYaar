@@ -37,7 +37,7 @@ export default function HomePage() {
           className="mb-6"
         >
           <div className="inline-flex items-center gap-3 mb-4">
-            <span className="text-6xl animate-float">🎭</span>
+            <img src="/logo.png" alt="PakadYaar Logo" className="w-24 h-24 md:w-28 md:h-28 object-contain rounded-2xl shadow-2xl shadow-primary-500/30 animate-float border border-white/10" />
           </div>
           <h1 className="text-6xl md:text-8xl font-black tracking-tight">
             <span className="text-gradient">Pakad</span>
