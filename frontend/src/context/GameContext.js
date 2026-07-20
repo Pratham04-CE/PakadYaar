@@ -78,7 +78,8 @@ export function GameProvider({ children }) {
         // VOICE CHAT events
         socket.on('user-joined-voice', ({ playerId }) => {
             if (playerId !== socket.id) {
-                voiceChat.createPeerConnection(playerId, socket, true);
+                const isInitiator = socket.id < playerId;
+                voiceChat.createPeerConnection(playerId, socket, isInitiator);
             }
         });
 
@@ -222,7 +223,8 @@ export function GameProvider({ children }) {
         if (room && room.players) {
             room.players.forEach(p => {
                 if (p.id !== socket.id) {
-                    voiceChat.createPeerConnection(p.id, socket, true);
+                    const isInitiator = socket.id < p.id;
+                    voiceChat.createPeerConnection(p.id, socket, isInitiator);
                 }
             });
         }

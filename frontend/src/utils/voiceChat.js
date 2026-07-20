@@ -79,7 +79,6 @@ class VoiceChatManager {
     if (this.peerConnections.has(peerId)) {
       const existingPc = this.peerConnections.get(peerId);
       if (existingPc.connectionState !== 'closed' && existingPc.connectionState !== 'failed') {
-        // If localStream now exists and track was missing, add it
         if (this.localStream) {
           this.localStream.getTracks().forEach(track => {
             const senders = existingPc.getSenders();
@@ -159,6 +158,9 @@ class VoiceChatManager {
     // If initiator, create and transmit SDP Offer
     if (isInitiator) {
       try {
+        if (pc.signalingState !== 'stable') {
+          return pc;
+        }
         const offer = await pc.createOffer({
           offerToReceiveAudio: true
         });
@@ -179,26 +181,42 @@ class VoiceChatManager {
     let pc = this.peerConnections.get(senderId);
 
     if (!pc || pc.connectionState === 'closed') {
-      pc = await this.createPeerConnection(senderId, socket, false);
+      const isInitiator = socket.id < senderId;
+      pc = await this.createPeerConnection(senderId, socket, isInitiator);
     }
 
     try {
       if (signal.sdp) {
-        const rsd = new RTCSessionDescription(signal.sdp);
-        await pc.setRemoteDescription(rsd);
+        const sdp = signal.sdp;
+        const currentState = pc.signalingState;
 
-        // Process queued ICE candidates now that remote description is set!
+        // Guard 1: Ignore answer if not expecting an answer
+        if (sdp.type === 'answer' && currentState !== 'have-local-offer') {
+          return;
+        }
+
+        // Guard 2: Rollback if offer received while expecting answer and we are polite peer
+        const isPolite = socket.id > senderId;
+        if (sdp.type === 'offer' && currentState === 'have-local-offer') {
+          if (isPolite) {
+            await pc.setLocalDescription({ type: 'rollback' });
+          } else {
+            return;
+          }
+        }
+
+        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+
+        // Process queued ICE candidates now that remote description is set
         const queue = this.candidateQueues.get(senderId) || [];
         while (queue.length > 0) {
           const candidate = queue.shift();
           try {
             await pc.addIceCandidate(candidate);
-          } catch (e) {
-            console.warn('Queued ICE candidate failed:', e);
-          }
+          } catch (e) {}
         }
 
-        if (signal.sdp.type === 'offer') {
+        if (sdp.type === 'offer') {
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           socket.emit('voice-signal', {
@@ -209,7 +227,9 @@ class VoiceChatManager {
       } else if (signal.candidate) {
         const candidate = new RTCIceCandidate(signal.candidate);
         if (pc.remoteDescription && pc.remoteDescription.type) {
-          await pc.addIceCandidate(candidate);
+          try {
+            await pc.addIceCandidate(candidate);
+          } catch (e) {}
         } else {
           // Queue candidate until remote description is set
           const queue = this.candidateQueues.get(senderId) || [];
