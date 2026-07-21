@@ -1,0 +1,78 @@
+PakadYaar — Project Overview and Workflow
+
+Overview
+--------
+PakadYaar is a real-time multiplayer social-deduction party game where players receive secret words; most players get the same word while imposters receive a related but different word. Players discuss, then vote to identify the imposters. The server is Node.js + Express + Socket.IO and the client is React with Tailwind CSS.
+
+Key folders
+-----------
+- backend/: Node/Express server, Socket.IO handlers, in-memory room state, JSON data.
+  - server.js — server entry and socket initializer
+  - socket/ — socket handlers: roomHandler.js, gameHandler.js, voiceHandler.js
+  - state/ — server-side Maps for `rooms` and `playerRooms`
+  - utils/ — helpers (word assignment, room codes, random selection)
+  - data/ — `words.json`, `categories.json` (static game data)
+- frontend/: React app (pages for Lobby, Waiting, Discussion, Voting, Results)
+  - src/pages/ — UI pages
+  - src/socket/ — client socket wrapper
+  - public/ — index.html, manifest, static assets
+- README.md — design and feature summary
+
+Run & development (local)
+-------------------------
+Prerequisites: Node.js and npm installed.
+
+1) Start backend
+   - Open terminal
+   - cd backend
+   - npm install (first time)
+   - npm run dev   # uses nodemon for development
+   - or npm start for production
+
+2) Start frontend
+   - Open another terminal
+   - cd frontend
+   - npm install (first time)
+   - npm start
+
+Default server port: 5000 (can be overridden with `PORT` env var). The frontend uses `socket.io-client` to connect to the server — ensure the client points to the correct backend address if not proxied.
+
+Primary runtime flow
+--------------------
+1. Host creates a room (`create-room`) → server makes a room code and assigns host.  
+2. Players join with `join-room` (name + room code). Server tracks player sockets in `playerRooms` map.  
+3. Host `start-game` → server assigns words via `assignWords` and sets `gameState` to `word-reveal`.  
+4. Players confirm seeing words (`confirm-word`) → host triggers `start-discussion`.  
+5. Discussion timer runs (`discussion-started` / `timer-tick`) → when ends server starts voting.  
+6. Players `cast-vote` → server tallies when all votes in or timer ends.  
+7. `tallyVotes` determines eliminated player, awards points, sends `vote-results`.  
+8. Repeat rounds until `totalRounds`; then `game-over` and optional `play-again`.
+
+Data & persistence
+------------------
+- Game data is stored in JSON files under `backend/data/` (e.g., `words.json`).  
+- Room and game state are stored in-memory (Maps). Server restarts will clear active games and in-memory data.
+
+Development notes & suggestions
+-------------------------------
+- Persistence: add a lightweight DB (SQLite, Redis) if you need persistence across restarts or reconnection resilience.  
+- Scaling: Socket.IO can be scaled with an adapter (Redis adapter) for multi-process/multi-host setups.  
+- Security: sanitize player names, validate inputs thoroughly, and consider rate-limiting to avoid abuse.  
+- Tests: add unit tests for `assignWords` and vote-tallying logic to prevent regressions.  
+- Data enrichment: expand `words.json` with more categories, difficulty tags, and better multilingual meanings/hints.
+
+How I organized this file
+-------------------------
+- Short overview and tech stack.  
+- Key project folders and important files.  
+- Quick local run steps for developer convenience.  
+- Primary runtime flow to help contributors understand socket events and game lifecycle.  
+- Suggestions for next improvements.
+
+Next actions you might want me to do
+------------------------------------
+- Generate a longer `CONTRIBUTING.md` or `DEVELOPER_GUIDE.md` with environment setup, debugging tips, and socket event documentation.  
+- Produce a JSON inventory of `backend/data/words.json` categories and counts.  
+- Add basic unit tests for game logic.
+
+File created: PROJECT_OVERVIEW_WORKFLOW.txt

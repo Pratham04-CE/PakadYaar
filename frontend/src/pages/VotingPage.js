@@ -4,7 +4,7 @@ import { useGame } from '../context/GameContext';
 import sound from '../utils/sound';
 
 export default function VotingPage() {
-  const { room, myId, timer, voteData, castVote } = useGame();
+  const { room, myId, timer, voteData, castVote, isCardDisabled } = useGame();
 
   if (!room) return null;
 
@@ -21,7 +21,6 @@ export default function VotingPage() {
 
   const formatTime = s => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
 
-  // Count how many votes each player has (anonymous display)
   const voteCounts = {};
   room.players.forEach(p => { voteCounts[p.id] = 0; });
   Object.values(voteData).forEach(id => { if (voteCounts[id] !== undefined) voteCounts[id]++; });
@@ -33,27 +32,18 @@ export default function VotingPage() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="min-h-screen px-4 py-8"
-    >
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="min-h-screen px-4 py-8">
       <div className="max-w-3xl mx-auto">
 
         {/* Header */}
-        <motion.div
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="text-center mb-6"
-        >
+        <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="text-center mb-6">
           <div className="inline-flex items-center gap-2 bg-rose-500/20 border border-rose-500/30 rounded-full px-4 py-1.5 text-rose-300 text-sm mb-3">
             <span className="live-dot" style={{ background: '#f43f5e' }} />
-            Voting Phase — Round {room.currentRound}
+            Voting Phase — Cards Locked {isCardDisabled && '🔒'}
           </div>
           <h1 className="text-3xl font-bold text-white">Who is the Imposter?</h1>
           <p className="text-white/40 mt-2 text-sm">
-            Vote for who you think is the imposter. Each player gets one vote.
+            Cards are disabled during voting. Cast your final vote carefully!
           </p>
         </motion.div>
 
@@ -77,13 +67,8 @@ export default function VotingPage() {
           </div>
         </motion.div>
 
-        {/* Vote status */}
         {hasVoted && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="glass border-green-500/30 bg-green-500/10 p-4 text-center mb-5 rounded-xl"
-          >
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="glass border-green-500/30 bg-green-500/10 p-4 text-center mb-5 rounded-xl">
             <p className="text-green-400 font-semibold">
               ✅ You voted for{' '}
               <span className="text-white">
@@ -122,14 +107,9 @@ export default function VotingPage() {
                           : 'border-white/10 bg-white/5 hover:border-rose-500/50 hover:bg-rose-500/10 cursor-pointer'
                     }
                   `}
-                  id={`vote-player-${player.id}`}
                 >
                   <div className="flex items-center gap-4">
-                    {/* Avatar */}
-                    <div
-                      className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
-                      style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}
-                    >
+                    <div className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0" style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}>
                       {player.avatar?.initial || player.name[0]}
                     </div>
 
@@ -142,14 +122,9 @@ export default function VotingPage() {
                       <div className="text-sm text-white/40">{player.score || 0} pts</div>
                     </div>
 
-                    {/* Vote count */}
                     <div className="text-right">
                       {voteCount > 0 && (
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          className="text-rose-400 font-black text-2xl"
-                        >
+                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-rose-400 font-black text-2xl">
                           {voteCount}
                         </motion.div>
                       )}
@@ -158,26 +133,14 @@ export default function VotingPage() {
                       )}
                     </div>
                   </div>
-
-                  {/* Imposter suspicion badge */}
-                  {!isSelf && !hasVoted && (
-                    <div className="absolute top-3 right-3 text-xs text-rose-400/60">
-                      Tap to vote →
-                    </div>
-                  )}
                 </motion.button>
               );
             })}
           </AnimatePresence>
         </div>
 
-        {/* Waiting for results */}
         {hasVoted && totalVotes < expectedVotes && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="mt-6 text-center text-white/30 text-sm animate-pulse"
-          >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-6 text-center text-white/30 text-sm animate-pulse">
             Waiting for {expectedVotes - totalVotes} more vote{expectedVotes - totalVotes !== 1 ? 's' : ''}…
           </motion.div>
         )}

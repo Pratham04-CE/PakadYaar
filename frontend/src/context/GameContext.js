@@ -3,37 +3,33 @@ import socket from '../socket/socket';
 import sound from '../utils/sound';
 import voiceChat from '../utils/voiceChat';
 
-//Game context
 const GameContext = createContext(null);
 
 export function GameProvider({ children }) {
-    const [room, setRoom] = useState(null);          // Current room state
-    const [myId, setMyId] = useState(null);           // My socket ID
-    const [myWord, setMyWord] = useState(null);        // { word, isImposter }
-    const [gamePhase, setGamePhase] = useState('home'); // Current UI phase
-    const [timer, setTimer] = useState(null);          // { remaining, phase }
-    const [voteData, setVoteData] = useState({});      // { voterId: targetId }
-    const [results, setResults] = useState(null);      // Vote results
-    const [finalResults, setFinalResults] = useState(null); // Game over data
+    const [room, setRoom] = useState(null);
+    const [myId, setMyId] = useState(null);
+    const [myWord, setMyWord] = useState(null);
+    const [gamePhase, setGamePhase] = useState('home');
+    const [timer, setTimer] = useState(null);
+    const [voteData, setVoteData] = useState({});
+    const [results, setResults] = useState(null);
+    const [finalResults, setFinalResults] = useState(null);
     const [error, setError] = useState(null);
     const [confirmedCount, setConfirmedCount] = useState(0);
     const [hasConfirmedWord, setHasConfirmedWord] = useState(false);
     const [drawMessage, setDrawMessage] = useState(null);
+    const [isCardDisabled, setIsCardDisabled] = useState(false); // <--- New State for disabling cards
 
-    // Voice chat state
     const [isMicOn, setIsMicOn] = useState(false);
-    const [peerMutedMap, setPeerMutedMap] = useState({}); // socketId -> isMuted
+    const [peerMutedMap, setPeerMutedMap] = useState({});
 
-    // Track socket ID
     useEffect(() => {
         setMyId(socket.id);
         socket.on('connect', () => setMyId(socket.id));
         return () => socket.off('connect');
     }, []);
 
-    // ─── Inbound socket events ────────────────────────────────────────────────
     useEffect(() => {
-        // ROOM events
         socket.on('room-created', ({ room }) => {
             setRoom(room);
             setGamePhase('waiting-room');
@@ -54,17 +50,9 @@ export function GameProvider({ children }) {
             setRoom(prev => prev ? { ...prev, config } : prev);
         });
 
-        socket.on('join-error', ({ message }) => {
-            setError(message);
-        });
-
-        socket.on('start-error', ({ message }) => {
-            setError(message);
-        });
-
-        socket.on('error', ({ message }) => {
-            setError(message);
-        });
+        socket.on('join-error', ({ message }) => setError(message));
+        socket.on('start-error', ({ message }) => setError(message));
+        socket.on('error', ({ message }) => setError(message));
 
         socket.on('player-left', ({ playerId }) => {
             voiceChat.closePeerConnection(playerId);
@@ -75,7 +63,6 @@ export function GameProvider({ children }) {
             });
         });
 
-        // VOICE CHAT events
         socket.on('user-joined-voice', ({ playerId }) => {
             if (playerId !== socket.id) {
                 const isInitiator = socket.id < playerId;
@@ -93,7 +80,6 @@ export function GameProvider({ children }) {
             setPeerMutedMap(prev => ({ ...prev, [playerId]: isMuted }));
         });
 
-        // GAME events
         socket.on('game-started', ({ room }) => {
             setRoom(room);
             setMyWord(null);
@@ -103,6 +89,7 @@ export function GameProvider({ children }) {
             setConfirmedCount(0);
             setHasConfirmedWord(false);
             setDrawMessage(null);
+            setIsCardDisabled(false); // <--- Enable cards for new round
             setGamePhase('word-reveal');
             sound.start();
         });
@@ -120,6 +107,7 @@ export function GameProvider({ children }) {
             setTimer({ remaining, phase: 'discussion', total: duration });
             setGamePhase('discussion');
             setDrawMessage(null);
+            setIsCardDisabled(false); // <--- Cards available during discussion
             sound.start();
         });
 
@@ -134,10 +122,11 @@ export function GameProvider({ children }) {
             setTimer({ remaining, phase: 'voting', total: duration });
             setVoteData({});
             setGamePhase('voting');
+            setIsCardDisabled(true); // <--- Disable cards automatically when voting starts
             sound.start();
         });
 
-        socket.on('vote-cast', ({ voterId, targetId, totalVotes, expectedVotes }) => {
+        socket.on('vote-cast', ({ voterId, targetId }) => {
             setVoteData(prev => ({ ...prev, [voterId]: targetId }));
             sound.vote();
         });
@@ -145,6 +134,7 @@ export function GameProvider({ children }) {
         socket.on('vote-draw', ({ message }) => {
             setDrawMessage(message);
             setGamePhase('discussion');
+            setIsCardDisabled(false);
             sound.draw();
         });
 
@@ -175,6 +165,7 @@ export function GameProvider({ children }) {
             setConfirmedCount(0);
             setHasConfirmedWord(false);
             setDrawMessage(null);
+            setIsCardDisabled(false);
             setGamePhase('waiting-room');
         });
 
@@ -204,7 +195,6 @@ export function GameProvider({ children }) {
         };
     }, []);
 
-    // ─── Voice Chat Action ──────────────────────────────────────────────────
     const toggleMic = useCallback(async () => {
         if (!voiceChat.isInitialized()) {
             const stream = await voiceChat.startLocalStream();
@@ -219,7 +209,6 @@ export function GameProvider({ children }) {
         socket.emit('voice-mute-status', { isMuted });
         socket.emit('join-voice');
 
-        // Initiate WebRTC peer connections with all room members
         if (room && room.players) {
             room.players.forEach(p => {
                 if (p.id !== socket.id) {
@@ -232,7 +221,6 @@ export function GameProvider({ children }) {
         return !isMuted;
     }, [room]);
 
-    // ─── Outbound actions ─────────────────────────────────────────────────────
     const createRoom = useCallback((playerName) => {
         setError(null);
         socket.emit('create-room', { playerName });
@@ -254,6 +242,7 @@ export function GameProvider({ children }) {
         setFinalResults(null);
         setTimer(null);
         setError(null);
+        setIsCardDisabled(false);
         setGamePhase('home');
     }, []);
 
@@ -308,11 +297,10 @@ export function GameProvider({ children }) {
         drawMessage,
         isHost,
         myPlayer,
-        // Voice Chat
+        isCardDisabled, // <--- Exported for components
         isMicOn,
         peerMutedMap,
         toggleMic,
-        // Actions
         createRoom,
         joinRoom,
         leaveRoom,

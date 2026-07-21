@@ -8,7 +8,7 @@ import sound from './utils/sound';
 import HomePage from './pages/HomePage';
 import LobbyPage from './pages/LobbyPage';
 import WaitingRoomPage from './pages/WaitingRoomPage';
-import WordRevealPage from './pages/WordRevealPage';
+import TableDistributorPage from './pages/TableDistributorPage'; // <--- Updated Table Distributor Page
 import DiscussionPage from './pages/DiscussionPage';
 import VotingPage from './pages/VotingPage';
 import ResultsPage from './pages/ResultsPage';
@@ -20,10 +20,10 @@ function PhaseRouter() {
   const { gamePhase } = useGame();
 
   switch (gamePhase) {
-    case 'home':         return <HomePage />;
-    case 'lobby':        return <LobbyPage />;
+    case 'home':        return <HomePage />;
+    case 'lobby':       return <LobbyPage />;
     case 'waiting-room': return <WaitingRoomPage />;
-    case 'word-reveal':  return <WordRevealPage />;
+    case 'word-reveal':  return <TableDistributorPage />; // <--- Renders Central Table & Dealer here
     case 'discussion':   return <DiscussionPage />;
     case 'voting':       return <VotingPage />;
     case 'results':      return <ResultsPage />;
