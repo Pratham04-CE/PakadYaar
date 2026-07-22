@@ -4,7 +4,7 @@ import { useGame } from '../context/GameContext';
 import sound from '../utils/sound';
 
 export default function VotingPage() {
-  const { room, myId, timer, voteData, castVote, isCardDisabled } = useGame();
+  const { room, myId, timer, voteData, castVote } = useGame();
 
   if (!room) return null;
 
