@@ -14,6 +14,12 @@ const DEFAULT_CONFIG = {
     votingTime: 60
 };
 
+// Grace-period timers: socketId -> setTimeout handle
+// When a socket disconnects, we wait GRACE_MS before actually removing the player.
+// If they rejoin before that, the timer is cancelled.
+const disconnectTimers = new Map();
+const GRACE_MS = 6000; // 6 seconds
+
 
 function roomHandler(io, socket) {
 
@@ -103,10 +109,133 @@ function roomHandler(io, socket) {
     });
 
     // ─────────────────────────────────────────────
-    // LEAVE ROOM
+    // REJOIN ROOM (after page refresh / reconnect)
+    // ─────────────────────────────────────────────
+    socket.on('rejoin-room', ({ roomCode, playerName }) => {
+        if (!roomCode || !playerName) {
+            socket.emit('rejoin-error', { message: 'Missing room code or player name.' });
+            return;
+        }
+
+        const code = (roomCode || '').trim().toUpperCase();
+        const room = rooms.get(code);
+
+        if (!room) {
+            socket.emit('rejoin-error', { message: 'Room no longer exists.' });
+            return;
+        }
+
+        const name = playerName.trim();
+        const playerIndex = room.players.findIndex(p => p.name === name);
+
+        if (playerIndex === -1) {
+            socket.emit('rejoin-error', { message: 'Player not found in room.' });
+            return;
+        }
+
+        const oldSocketId = room.players[playerIndex].id;
+
+        // Cancel any pending grace-period removal for the old socket
+        if (disconnectTimers.has(oldSocketId)) {
+            clearTimeout(disconnectTimers.get(oldSocketId));
+            disconnectTimers.delete(oldSocketId);
+            console.log(`Grace period cancelled for ${name} (${oldSocketId})`);
+        }
+
+        // Swap socket IDs
+        const player = room.players[playerIndex];
+        playerRooms.delete(oldSocketId);
+
+        player.id = socket.id;
+        playerRooms.set(socket.id, code);
+        socket.join(code);
+
+        // If this player was the host, update room.host
+        if (room.host === oldSocketId) {
+            room.host = socket.id;
+        }
+
+        // Also update confirmedWords set if old ID was in there
+        if (room.confirmedWords.has(oldSocketId)) {
+            room.confirmedWords.delete(oldSocketId);
+            room.confirmedWords.add(socket.id);
+        }
+
+        // Also update votes map if old ID voted
+        if (room.votes && room.votes[oldSocketId] !== undefined) {
+            room.votes[socket.id] = room.votes[oldSocketId];
+            delete room.votes[oldSocketId];
+        }
+        // Update any vote targets pointing to old ID
+        if (room.votes) {
+            for (const [voterId, targetId] of Object.entries(room.votes)) {
+                if (targetId === oldSocketId) {
+                    room.votes[voterId] = socket.id;
+                }
+            }
+        }
+
+        console.log(`${name} rejoined room ${code} (${oldSocketId} -> ${socket.id})`);
+
+        // Send full room state back
+        socket.emit('rejoin-success', {
+            room: sanitizeRoom(room),
+            gameState: room.gameState
+        });
+
+        // If game in progress, resend their private word
+        if (room.words && room.words[socket.id]) {
+            socket.emit('your-word', room.words[socket.id]);
+        } else if (room.words && room.words[oldSocketId]) {
+            // Word was stored under old ID — migrate it
+            room.words[socket.id] = room.words[oldSocketId];
+            delete room.words[oldSocketId];
+            socket.emit('your-word', room.words[socket.id]);
+        }
+
+        // Notify other players that room updated
+        io.to(code).emit('room-updated', { room: sanitizeRoom(room) });
+    });
+
+    // ─────────────────────────────────────────────
+    // LEAVE ROOM (intentional quit)
     // ─────────────────────────────────────────────
     socket.on('leave-room', () => {
-        handleLeave(io, socket);
+        handleLeave(io, socket, true);
+    });
+
+    // ─────────────────────────────────────────────
+    // KICK PLAYER (host only)
+    // ─────────────────────────────────────────────
+    socket.on('kick-player', ({ playerId }) => {
+        const roomCode = playerRooms.get(socket.id);
+        if (!roomCode) return;
+        const room = rooms.get(roomCode);
+        if (!room || room.host !== socket.id) return;
+        if (playerId === socket.id) return; // Can't kick yourself
+
+        const target = room.players.find(p => p.id === playerId);
+        if (!target) return;
+
+        // Remove from room
+        room.players = room.players.filter(p => p.id !== playerId);
+        room.confirmedWords.delete(playerId);
+        playerRooms.delete(playerId);
+
+        // Clean up grace timer if any
+        if (disconnectTimers.has(playerId)) {
+            clearTimeout(disconnectTimers.get(playerId));
+            disconnectTimers.delete(playerId);
+        }
+
+        // Tell the kicked player they've been removed
+        io.to(playerId).emit('kicked-from-room', { message: 'You were removed by the host.' });
+
+        // Update all remaining players
+        io.to(roomCode).emit('room-updated', { room: sanitizeRoom(room) });
+        io.to(roomCode).emit('player-left', { playerId });
+
+        console.log(`${target.name} was kicked from room ${roomCode}`);
     });
 
     // ─────────────────────────────────────────────
@@ -165,10 +294,34 @@ function roomHandler(io, socket) {
     });
 
     // ─────────────────────────────────────────────
-    // DISCONNECT
+    // DISCONNECT — grace period before removing
     // ─────────────────────────────────────────────
     socket.on('disconnect', () => {
-        handleLeave(io, socket);
+        const roomCode = playerRooms.get(socket.id);
+        if (!roomCode) return;
+
+        const room = rooms.get(roomCode);
+        if (!room) {
+            playerRooms.delete(socket.id);
+            return;
+        }
+
+        const player = room.players.find(p => p.id === socket.id);
+        if (!player) return;
+
+        console.log(`${player.name} disconnected from ${roomCode}, starting ${GRACE_MS}ms grace period`);
+
+        // Notify others that player is temporarily disconnected
+        io.to(roomCode).emit('player-disconnected', { playerId: socket.id, playerName: player.name });
+
+        // Start grace-period timer
+        const timer = setTimeout(() => {
+            disconnectTimers.delete(socket.id);
+            handleLeave(io, socket, false);
+            console.log(`Grace period expired for ${player.name} — removed from ${roomCode}`);
+        }, GRACE_MS);
+
+        disconnectTimers.set(socket.id, timer);
     });
 }
 
@@ -176,7 +329,7 @@ function roomHandler(io, socket) {
 // HELPERS
 // ─────────────────────────────────────────────
 
-function handleLeave(io, socket) {
+function handleLeave(io, socket, isIntentional = true) {
     const roomCode = playerRooms.get(socket.id);
     if (!roomCode) return;
 

@@ -7,8 +7,10 @@ const BACKEND_URL =
 // Single shared socket instance connecting to the backend
 const socket = io(BACKEND_URL, {
     autoConnect: true,
-    reconnectionAttempts: 5,
+    reconnection: true,
+    reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
     transports: ['websocket', 'polling'], // Render requires websocket first
 });
 

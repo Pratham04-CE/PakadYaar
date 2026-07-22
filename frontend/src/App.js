@@ -8,7 +8,7 @@ import sound from './utils/sound';
 import HomePage from './pages/HomePage';
 import LobbyPage from './pages/LobbyPage';
 import WaitingRoomPage from './pages/WaitingRoomPage';
-import TableDistributorPage from './pages/TableDistributorPage'; // <--- Updated Table Distributor Page
+import TableDistributorPage from './pages/TableDistributorPage';
 import DiscussionPage from './pages/DiscussionPage';
 import VotingPage from './pages/VotingPage';
 import ResultsPage from './pages/ResultsPage';
@@ -20,10 +20,10 @@ function PhaseRouter() {
   const { gamePhase } = useGame();
 
   switch (gamePhase) {
-    case 'home':        return <HomePage />;
-    case 'lobby':       return <LobbyPage />;
+    case 'home':         return <HomePage />;
+    case 'lobby':        return <LobbyPage />;
     case 'waiting-room': return <WaitingRoomPage />;
-    case 'word-reveal':  return <TableDistributorPage />; // <--- Renders Central Table & Dealer here
+    case 'word-reveal':  return <TableDistributorPage />;
     case 'discussion':   return <DiscussionPage />;
     case 'voting':       return <VotingPage />;
     case 'results':      return <ResultsPage />;
@@ -38,16 +38,15 @@ function SoundToggle() {
   function toggle() {
     const isNowMuted = sound.toggleMute();
     setMuted(isNowMuted);
-    if (!isNowMuted) {
-      sound.click();
-    }
+    if (!isNowMuted) sound.click();
   }
 
   return (
     <button
       onClick={toggle}
-      title={muted ? "Unmute Sound" : "Mute Sound"}
-      className="fixed top-4 right-4 z-50 w-11 h-11 rounded-full glass flex items-center justify-center text-xl shadow-lg border border-white/10 hover:border-white/30 transition-all active:scale-95 cursor-pointer select-none"
+      title={muted ? 'Unmute Sound' : 'Mute Sound'}
+      className="fixed top-3 right-3 z-50 w-10 h-10 rounded-full glass flex items-center justify-center text-lg shadow-lg border border-white/10 hover:border-white/30 transition-all active:scale-95 cursor-pointer select-none"
+      style={{ touchAction: 'manipulation' }}
     >
       {muted ? '🔇' : '🔊'}
     </button>
@@ -61,13 +60,11 @@ function MicToggle() {
 
   return (
     <button
-      onClick={() => {
-        sound.click();
-        toggleMic();
-      }}
-      title={isMicOn ? "Mute Microphone" : "Turn On Microphone"}
+      onClick={() => { sound.click(); toggleMic(); }}
+      title={isMicOn ? 'Mute Microphone' : 'Turn On Microphone'}
+      style={{ touchAction: 'manipulation', right: '56px' }}
       className={`
-        fixed top-4 right-17 z-50 w-11 h-11 rounded-full flex items-center justify-center text-xl shadow-lg border
+        fixed top-3 z-50 w-10 h-10 rounded-full flex items-center justify-center text-lg shadow-lg border
         transition-all active:scale-95 cursor-pointer select-none
         ${isMicOn
           ? 'bg-green-500/20 border-green-500/50 text-green-400 glow-teal animate-pulse'
@@ -91,9 +88,9 @@ function App() {
 
           {/* Ambient background orbs */}
           <div className="fixed inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute top-[-20%] left-[-10%] w-96 h-96 bg-primary-700/20 rounded-full blur-3xl animate-pulse-slow" />
-            <div className="absolute bottom-[-20%] right-[-10%] w-96 h-96 bg-accent-600/15 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }} />
-            <div className="absolute top-[40%] right-[20%] w-64 h-64 bg-primary-800/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '4s' }} />
+            <div className="absolute top-[-20%] left-[-10%] w-72 h-72 sm:w-96 sm:h-96 bg-primary-700/20 rounded-full blur-3xl animate-pulse-slow" />
+            <div className="absolute bottom-[-20%] right-[-10%] w-72 h-72 sm:w-96 sm:h-96 bg-accent-600/15 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }} />
+            <div className="absolute top-[40%] right-[20%] w-48 h-48 sm:w-64 sm:h-64 bg-primary-800/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '4s' }} />
           </div>
 
           <AnimatePresence mode="wait">

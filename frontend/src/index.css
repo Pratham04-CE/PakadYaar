@@ -14,11 +14,18 @@
   body {
     @apply bg-dark-900 text-white font-sans;
     min-height: 100vh;
+    min-height: -webkit-fill-available;
     overflow-x: hidden;
+    /* Prevent text from being too small on mobile */
+    -webkit-text-size-adjust: 100%;
+  }
+
+  html {
+    min-height: -webkit-fill-available;
   }
 
   ::-webkit-scrollbar {
-    width: 6px;
+    width: 4px;
   }
   ::-webkit-scrollbar-track {
     @apply bg-dark-800;
@@ -40,26 +47,30 @@
 
   /* Button styles */
   .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-500 text-white font-semibold px-6 py-3 rounded-xl
+    @apply bg-primary-600 hover:bg-primary-500 active:bg-primary-700 text-white font-semibold px-6 py-3 rounded-xl
            transition-all duration-200 active:scale-95 shadow-lg
-           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
+           touch-manipulation select-none;
   }
 
   .btn-accent {
-    @apply bg-accent-500 hover:bg-accent-400 text-white font-semibold px-6 py-3 rounded-xl
+    @apply bg-accent-500 hover:bg-accent-400 active:bg-accent-600 text-white font-semibold px-6 py-3 rounded-xl
            transition-all duration-200 active:scale-95 shadow-lg
-           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
+           touch-manipulation select-none;
   }
 
   .btn-ghost {
-    @apply bg-white/5 hover:bg-white/10 text-white font-semibold px-6 py-3 rounded-xl
+    @apply bg-white/5 hover:bg-white/10 text-white font-semibold px-4 py-2.5 rounded-xl
            border border-white/10 hover:border-white/20
-           transition-all duration-200 active:scale-95;
+           transition-all duration-200 active:scale-95
+           touch-manipulation select-none;
   }
 
   .btn-danger {
     @apply bg-rose-500 hover:bg-rose-400 text-white font-semibold px-6 py-3 rounded-xl
-           transition-all duration-200 active:scale-95 shadow-lg;
+           transition-all duration-200 active:scale-95 shadow-lg
+           touch-manipulation select-none;
   }
 
   /* Input styles */
@@ -67,6 +78,7 @@
     @apply w-full bg-white/5 border border-white/20 rounded-xl px-4 py-3 text-white
            placeholder-white/30 focus:outline-none focus:border-primary-500 focus:ring-2 
            focus:ring-primary-500/20 transition-all duration-200;
+    font-size: 16px; /* Prevents iOS zoom on focus */
   }
 
   /* Neon glow effects */
@@ -84,7 +96,34 @@
 
   /* Live dot indicator */
   .live-dot {
-    @apply w-2 h-2 bg-green-400 rounded-full animate-pulse;
+    @apply w-2 h-2 bg-green-400 rounded-full animate-pulse flex-shrink-0;
+  }
+
+  /* Mobile-safe page wrapper */
+  .page-wrapper {
+    @apply min-h-screen px-3 py-4 sm:px-4 sm:py-6;
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+    padding-top: calc(4rem + env(safe-area-inset-top));
+  }
+
+  /* Game card — used in TableDistributor */
+  .game-card {
+    @apply relative rounded-2xl border-2 cursor-pointer select-none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    touch-action: manipulation;
+  }
+  .game-card:active {
+    transform: scale(0.97);
+  }
+
+  /* Player chip — compact avatar + name */
+  .player-chip {
+    @apply flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5;
+  }
+
+  /* Badge */
+  .badge {
+    @apply text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 leading-tight;
   }
 }
 
@@ -95,5 +134,19 @@
 
   .border-gradient {
     border-image: linear-gradient(135deg, #7c3aed, #06b6d4) 1;
+  }
+
+  /* Prevent text selection on game interactive elements */
+  .no-select {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Truncate with ellipsis */
+  .truncate-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 }

@@ -37,50 +37,52 @@ export default function LobbyPage() {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 30 }}
+      initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -30 }}
-      className="min-h-screen flex flex-col items-center justify-center px-4 py-12"
+      exit={{ opacity: 0, y: -24 }}
+      className="min-h-screen flex flex-col items-center justify-center px-4 py-8"
+      style={{ paddingTop: '80px' }}
     >
       {/* Header */}
       <motion.div
-        initial={{ y: -20, opacity: 0 }}
+        initial={{ y: -16, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.1 }}
-        className="text-center mb-10"
+        className="text-center mb-6"
       >
-        <a href="/" className="inline-flex items-center gap-2 text-white/40 hover:text-white/70 transition-colors mb-6 text-sm">
+        <a href="/" className="inline-flex items-center gap-2 text-white/40 hover:text-white/70 transition-colors mb-5 text-sm">
           ← Back to Home
         </a>
-        <div className="flex justify-center mb-3">
-          <span className="text-5xl">🎭</span>
+        <div className="flex justify-center mb-2">
+          <span className="text-4xl">🎭</span>
         </div>
-        <h1 className="text-4xl font-black">
+        <h1 className="text-3xl sm:text-4xl font-black">
           <span className="text-gradient">Pakad</span>
           <span className="text-white">Yaar</span>
         </h1>
-        <p className="text-white/40 mt-2">Online Multiplayer</p>
+        <p className="text-white/40 mt-1 text-sm">Online Multiplayer</p>
       </motion.div>
 
       {/* Card */}
       <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
+        initial={{ scale: 0.96, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className="glass-strong w-full max-w-md p-8"
+        className="glass-strong w-full max-w-sm p-6"
       >
         {/* Tabs */}
-        <div className="flex rounded-xl bg-white/5 p-1 mb-8">
+        <div className="flex rounded-xl bg-white/5 p-1 mb-6">
           {['create', 'join'].map(t => (
             <button
               key={t}
               onClick={() => { setTab(t); clearError(); }}
+              style={{ touchAction: 'manipulation' }}
               className={`
                 flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200
                 ${tab === t ? 'bg-primary-600 text-white shadow-lg' : 'text-white/50 hover:text-white/80'}
               `}
             >
-              {t === 'create' ? '🏠 Create Room' : '🚪 Join Room'}
+              {t === 'create' ? '🏠 Create' : '🚪 Join'}
             </button>
           ))}
         </div>
@@ -92,7 +94,7 @@ export default function LobbyPage() {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="bg-rose-500/20 border border-rose-500/40 rounded-xl px-4 py-3 mb-5 text-rose-300 text-sm"
+              className="bg-rose-500/20 border border-rose-500/40 rounded-xl px-4 py-3 mb-4 text-rose-300 text-sm"
             >
               ⚠️ {error}
             </motion.div>
@@ -104,11 +106,11 @@ export default function LobbyPage() {
           {tab === 'create' ? (
             <motion.form
               key="create"
-              initial={{ opacity: 0, x: -20 }}
+              initial={{ opacity: 0, x: -16 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
+              exit={{ opacity: 0, x: 16 }}
               onSubmit={handleCreate}
-              className="space-y-5"
+              className="space-y-4"
             >
               <div>
                 <label className="block text-sm text-white/60 mb-2 font-medium">Your Name</label>
@@ -128,26 +130,23 @@ export default function LobbyPage() {
                 id="create-room-btn"
                 disabled={!playerName.trim() || loading}
                 className="btn-primary w-full flex items-center justify-center gap-2 py-4 text-base"
+                style={{ touchAction: 'manipulation' }}
               >
-                {loading ? (
-                  <span className="animate-spin">⏳</span>
-                ) : (
-                  <>🏠 Create Room</>
-                )}
+                {loading ? <span className="animate-spin">⏳</span> : <>🏠 Create Room</>}
               </button>
 
               <p className="text-xs text-white/30 text-center">
-                You'll become the host and receive a room code to share.
+                You'll be the host and share the code with friends.
               </p>
             </motion.form>
           ) : (
             <motion.form
               key="join"
-              initial={{ opacity: 0, x: 20 }}
+              initial={{ opacity: 0, x: 16 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
+              exit={{ opacity: 0, x: -16 }}
               onSubmit={handleJoin}
-              className="space-y-5"
+              className="space-y-4"
             >
               <div>
                 <label className="block text-sm text-white/60 mb-2 font-medium">Your Name</label>
@@ -179,12 +178,9 @@ export default function LobbyPage() {
                 id="join-room-btn"
                 disabled={!playerName.trim() || !roomCode.trim() || loading}
                 className="btn-accent w-full flex items-center justify-center gap-2 py-4 text-base"
+                style={{ touchAction: 'manipulation' }}
               >
-                {loading ? (
-                  <span className="animate-spin">⏳</span>
-                ) : (
-                  <>🚪 Join Room</>
-                )}
+                {loading ? <span className="animate-spin">⏳</span> : <>🚪 Join Room</>}
               </button>
 
               <p className="text-xs text-white/30 text-center">
