@@ -114,7 +114,7 @@ function startDiscussion(io, room, durationOverride = null) {
 
     if (room.timers.discussion) clearInterval(room.timers.discussion);
 
-    io.to(room.code).emit('discussion-started', { duration, remaining });
+    io.to(room.code).emit('discussion-started', { duration, remaining, turnOrder: room.turnOrder || [] });
     console.log(`Discussion started in room ${room.code} (${duration}s)`);
 
     room.timers.discussion = setInterval(() => {

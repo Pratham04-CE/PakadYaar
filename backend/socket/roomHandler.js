@@ -396,6 +396,9 @@ function startNewRound(io, room) {
     room.confirmedWords = new Set();
     room.gameState = 'word-reveal';
 
+    // Generate a fresh shuffled speaking order for this round
+    room.turnOrder = shuffleArray(room.players.map(p => p.id));
+
     io.to(room.code).emit('game-started', {
         room: sanitizeRoom(room)
     });
@@ -421,7 +424,8 @@ function sanitizeRoom(room) {
         gameState: room.gameState,
         currentRound: room.currentRound,
         totalRounds: room.totalRounds,
-        confirmedCount: room.confirmedWords ? room.confirmedWords.size : 0
+        confirmedCount: room.confirmedWords ? room.confirmedWords.size : 0,
+        turnOrder: room.turnOrder || []
     };
 }
 
@@ -429,6 +433,16 @@ function generateAvatar(name) {
     const colors = ['#7c3aed', '#06b6d4', '#f59e0b', '#10b981', '#ef4444', '#3b82f6', '#ec4899', '#8b5cf6'];
     const index = name.charCodeAt(0) % colors.length;
     return { initial: name[0].toUpperCase(), color: colors[index] };
+}
+
+// Fisher-Yates shuffle
+function shuffleArray(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
 }
 
 module.exports = roomHandler;

@@ -57,7 +57,7 @@ export default function DiscussionPage() {
   const {
     room, myWord, timer, myId, drawMessage, isMicOn,
     peerMutedMap, isCardDisabled, lobbyMessages, typingUsers,
-    sendLobbyMessage, setTypingStatus
+    sendLobbyMessage, setTypingStatus, turnOrder
   } = useGame();
 
   const [showDetails, setShowDetails] = useState(false);
@@ -110,6 +110,14 @@ export default function DiscussionPage() {
 
   const typingNames = Object.values(typingUsers || {}).filter(Boolean);
 
+  // Build a fast player lookup map
+  const playerMap = Object.fromEntries((room?.players || []).map(p => [p.id, p]));
+
+  // Find my position in the speaking order (1-indexed)
+  const myTurnIndex = turnOrder.indexOf(myId);
+  const myTurnPosition = myTurnIndex >= 0 ? myTurnIndex + 1 : null;
+  const ordinals = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th'];
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -157,6 +165,39 @@ export default function DiscussionPage() {
             </div>
           </div>
         </div>
+
+        {/* Your Turn Position Banner */}
+        {myTurnPosition !== null && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`flex items-center gap-3 p-3 rounded-2xl border mb-4
+              ${ myTurnPosition === 1
+                ? 'bg-amber-500/15 border-amber-500/40'
+                : 'bg-primary-500/10 border-primary-500/30'
+              }`}
+          >
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm flex-shrink-0
+              ${ myTurnPosition === 1 ? 'bg-amber-500/30 text-amber-300 border border-amber-400/40'
+                : myTurnPosition === 2 ? 'bg-slate-400/20 text-slate-300 border border-slate-400/30'
+                : myTurnPosition === 3 ? 'bg-orange-700/20 text-orange-400 border border-orange-600/30'
+                : 'bg-white/10 text-white/70 border border-white/15'
+              }`}
+            >
+              {ordinals[myTurnIndex] || `#${myTurnPosition}`}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-white">Your Speaking Position</p>
+              <p className="text-[11px] text-white/50">
+                {myTurnPosition === 1
+                  ? '🎤 You speak first! Start the discussion.'
+                  : `Wait for ${myTurnPosition - 1} player${myTurnPosition - 1 !== 1 ? 's' : ''} before you.`
+                }
+              </p>
+            </div>
+            <span className="text-xl">{myTurnPosition === 1 ? '🎤' : '⏳'}</span>
+          </motion.div>
+        )}
 
         <div className="glass p-4 mb-4 rounded-2xl">
           <p className="text-xs uppercase text-white/40 tracking-wider mb-3 font-semibold">🃏 Your Secret Card</p>
@@ -289,39 +330,64 @@ export default function DiscussionPage() {
           </form>
         </motion.div>
 
+        {/* ── Speaking Order Panel ── */}
         <div className="glass p-4 rounded-2xl">
           <h2 className="font-bold text-white text-sm mb-3 flex items-center justify-between">
-            <span>Players ({room.players.length})</span>
-            <span className="text-xs text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20">🎙️ Live Voice/Text</span>
+            <span>🎤 Speaking Order ({room.players.length})</span>
+            <span className="text-xs text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20">🎤 Mic Live</span>
           </h2>
 
           <div className="space-y-2">
-            {room.players.map((player) => {
-              const playerMicOn = player.id === myId ? isMicOn : peerMutedMap[player.id] === false;
+            {(turnOrder.length > 0 ? turnOrder : room.players.map(p => p.id)).map((playerId, idx) => {
+              const player = playerMap[playerId] || room.players.find(p => p.id === playerId);
+              if (!player) return null;
+              const isMe = player.id === myId;
+              const playerMicOn = isMe ? isMicOn : peerMutedMap[player.id] === false;
               return (
-                <div key={player.id} className="flex items-center gap-2.5 p-2.5 rounded-xl border border-white/5 bg-white/3">
+                <motion.div
+                  key={player.id}
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.05 }}
+                  className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all
+                    ${isMe
+                      ? 'border-primary-400/50 bg-primary-500/12 shadow-md shadow-primary-500/10'
+                      : 'border-white/5 bg-white/3'
+                    }`}
+                >
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-black flex-shrink-0
+                    ${idx === 0 ? 'bg-amber-500/30 text-amber-300 border border-amber-500/40'
+                      : idx === 1 ? 'bg-slate-400/20 text-slate-300 border border-slate-400/30'
+                      : idx === 2 ? 'bg-orange-700/25 text-orange-400 border border-orange-600/35'
+                      : 'bg-white/8 text-white/40 border border-white/8'
+                    }`}
+                  >
+                    {idx + 1}
+                  </div>
                   <div
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                    className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0
+                      ${isMe ? 'ring-2 ring-primary-400 ring-offset-1 ring-offset-transparent' : ''}`}
                     style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}
                   >
                     {player.avatar?.initial || player.name[0]}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-semibold text-white text-sm truncate max-w-[120px]">{player.name}</span>
-                      {player.id === myId && (
-                        <span className="badge bg-primary-500/20 text-primary-400">You</span>
-                      )}
-                      {player.isHost && (
-                        <span className="badge bg-amber-500/20 text-amber-400">👑</span>
-                      )}
+                      <span className={`font-semibold text-sm truncate max-w-[110px] ${isMe ? 'text-primary-200' : 'text-white'}`}>
+                        {player.name}
+                      </span>
+                      {isMe && <span className="badge bg-primary-500/20 text-primary-400 text-[10px]">You</span>}
+                      {player.isHost && <span className="badge bg-amber-500/20 text-amber-400 text-[10px]">👑</span>}
                     </div>
-                    <div className="text-xs text-white/30">{player.score || 0} pts</div>
+                    <div className="text-[10px] text-white/30">{player.score || 0} pts</div>
                   </div>
                   <div className="flex-shrink-0">
-                    {playerMicOn ? <span className="text-xs text-green-400 bg-green-500/20 px-2 py-0.5 rounded-full">🗣️</span> : <span className="text-xs text-white/25">🔇</span>}
+                    {playerMicOn
+                      ? <span className="text-xs text-green-400 bg-green-500/20 px-2 py-0.5 rounded-full">🗣️</span>
+                      : <span className="text-xs text-white/25">🔇</span>
+                    }
                   </div>
-                </div>
+                </motion.div>
               );
             })}
           </div>

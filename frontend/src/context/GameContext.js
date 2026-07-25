@@ -20,6 +20,7 @@ export function GameProvider({ children }) {
     const [drawMessage, setDrawMessage] = useState(null);
     const [isCardDisabled, setIsCardDisabled] = useState(false);
     const [leaveNotification, setLeaveNotification] = useState(null);
+    const [turnOrder, setTurnOrder] = useState([]);
 
     // Lobby Chat & Typing States
     const [lobbyMessages, setLobbyMessages] = useState([]);
@@ -199,6 +200,10 @@ export function GameProvider({ children }) {
             setHasConfirmedWord(false);
             setDrawMessage(null);
             setIsCardDisabled(false);
+            // Set the shuffled speaking order broadcast by the server
+            if (room.turnOrder && room.turnOrder.length > 0) {
+                setTurnOrder(room.turnOrder);
+            }
             setGamePhase('word-reveal');
             sound.start();
         });
@@ -212,11 +217,13 @@ export function GameProvider({ children }) {
             setRoom(prev => prev ? { ...prev, confirmedCount } : prev);
         });
 
-        socket.on('discussion-started', ({ duration, remaining }) => {
+        socket.on('discussion-started', ({ duration, remaining, turnOrder: to }) => {
             setTimer({ remaining, phase: 'discussion', total: duration });
             setGamePhase('discussion');
             setDrawMessage(null);
             setIsCardDisabled(false);
+            // Refresh turn order in case it was updated (e.g. after a draw re-discussion)
+            if (to && to.length > 0) setTurnOrder(to);
             sound.start();
         });
 
@@ -275,6 +282,7 @@ export function GameProvider({ children }) {
             setHasConfirmedWord(false);
             setDrawMessage(null);
             setIsCardDisabled(false);
+            setTurnOrder([]);
             setGamePhase('waiting-room');
         });
 
@@ -436,6 +444,7 @@ export function GameProvider({ children }) {
         isMicOn,
         peerMutedMap,
         toggleMic,
+        turnOrder,
         createRoom,
         joinRoom,
         leaveRoom,

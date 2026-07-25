@@ -4,7 +4,7 @@ import { useGame } from '../context/GameContext';
 import sound from '../utils/sound';
 
 export default function TableDistributorPage() {
-  const { room, myWord, isHost, confirmWord, hasConfirmedWord, confirmedCount, startDiscussion } = useGame();
+  const { room, myWord, myId, isHost, confirmWord, hasConfirmedWord, confirmedCount, startDiscussion, turnOrder } = useGame();
   const [isCardFlipped, setIsCardFlipped] = useState(false);
 
   if (!room) return null;
@@ -74,7 +74,7 @@ export default function TableDistributorPage() {
       </div>
 
       {/* ── Players Chips (horizontal scroll) ── */}
-      <div className="px-4 mb-6">
+      <div className="px-4 mb-4">
         <p className="text-xs text-white/40 uppercase tracking-wider mb-2 font-semibold">Players at the Table</p>
         <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
           {room.players.map((player, i) => (
@@ -97,6 +97,78 @@ export default function TableDistributorPage() {
           ))}
         </div>
       </div>
+
+      {/* ── Speaking Order ── */}
+      {turnOrder.length > 0 && (() => {
+        const playerMap = Object.fromEntries(room.players.map(p => [p.id, p]));
+        return (
+          <div className="px-4 mb-6">
+            <p className="text-xs text-white/40 uppercase tracking-wider mb-2 font-semibold">🎤 Speaking Order</p>
+            <div className="glass-strong rounded-2xl p-3 space-y-2">
+              {turnOrder.map((playerId, idx) => {
+                const player = playerMap[playerId];
+                if (!player) return null;
+                const isMe = playerId === myId;
+                const ordinals = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th'];
+                return (
+                  <motion.div
+                    key={playerId}
+                    initial={{ opacity: 0, x: -16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.05 + idx * 0.06 }}
+                    className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all
+                      ${isMe
+                        ? 'border-primary-400/60 bg-primary-500/15 shadow-lg shadow-primary-500/10'
+                        : 'border-white/5 bg-white/3'
+                      }`}
+                  >
+                    {/* Position badge */}
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0
+                      ${idx === 0 ? 'bg-amber-500/30 text-amber-300 border border-amber-500/40'
+                        : idx === 1 ? 'bg-slate-400/20 text-slate-300 border border-slate-400/30'
+                        : idx === 2 ? 'bg-orange-700/30 text-orange-400 border border-orange-600/40'
+                        : 'bg-white/8 text-white/50 border border-white/10'
+                      }`}
+                    >
+                      {ordinals[idx] || `${idx + 1}`}
+                    </div>
+
+                    {/* Avatar */}
+                    <div
+                      className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 shadow-md
+                        ${isMe ? 'ring-2 ring-primary-400 ring-offset-1 ring-offset-transparent' : ''}`}
+                      style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}
+                    >
+                      {player.avatar?.initial || player.name[0].toUpperCase()}
+                    </div>
+
+                    {/* Name & badges */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`font-semibold text-sm truncate max-w-[130px] ${ isMe ? 'text-primary-200' : 'text-white'}`}>
+                          {player.name}
+                        </span>
+                        {isMe && (
+                          <span className="text-[10px] bg-primary-500/25 text-primary-300 px-1.5 py-0.5 rounded font-bold">You</span>
+                        )}
+                        {player.isHost && (
+                          <span className="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">👑</span>
+                        )}
+                      </div>
+                      {idx === 0 && (
+                        <p className="text-[10px] text-amber-300/70 mt-0.5">Speaks first!</p>
+                      )}
+                    </div>
+
+                    {/* Mic icon hint */}
+                    <span className="text-base flex-shrink-0">{idx === 0 ? '🎤' : '🔇'}</span>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── My Secret Card ── */}
       <div className="flex-1 flex flex-col items-center justify-center px-4">
