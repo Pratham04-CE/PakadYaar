@@ -166,36 +166,54 @@ export default function DiscussionPage() {
           </div>
         </div>
 
-        {/* Your Turn Position Banner */}
-        {myTurnPosition !== null && (
+        {/* Compact Speaking Order Strip */}
+        {turnOrder.length > 0 && (
           <motion.div
-            initial={{ opacity: 0, y: -8 }}
+            initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`flex items-center gap-3 p-3 rounded-2xl border mb-4
-              ${ myTurnPosition === 1
-                ? 'bg-amber-500/15 border-amber-500/40'
-                : 'bg-primary-500/10 border-primary-500/30'
-              }`}
+            className="mb-4"
           >
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm flex-shrink-0
-              ${ myTurnPosition === 1 ? 'bg-amber-500/30 text-amber-300 border border-amber-400/40'
-                : myTurnPosition === 2 ? 'bg-slate-400/20 text-slate-300 border border-slate-400/30'
-                : myTurnPosition === 3 ? 'bg-orange-700/20 text-orange-400 border border-orange-600/30'
-                : 'bg-white/10 text-white/70 border border-white/15'
-              }`}
-            >
-              {ordinals[myTurnIndex] || `#${myTurnPosition}`}
+            <p className="text-[10px] text-white/35 uppercase tracking-wider mb-1.5 font-semibold flex items-center gap-1">
+              <span>🎤</span> Speaking Order
+              {myTurnPosition !== null && (
+                <span className={`ml-auto font-bold ${
+                  myTurnPosition === 1 ? 'text-amber-300' : 'text-primary-300'
+                }`}>
+                  You #{myTurnPosition}
+                </span>
+              )}
+            </p>
+            <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+              {turnOrder.map((playerId, idx) => {
+                const player = playerMap[playerId];
+                if (!player) return null;
+                const isMe = playerId === myId;
+                return (
+                  <div
+                    key={playerId}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg flex-shrink-0 border text-[11px]
+                      ${ isMe
+                        ? 'bg-primary-500/20 border-primary-400/50 text-primary-200'
+                        : 'bg-white/5 border-white/8 text-white/60'
+                      }`}
+                  >
+                    <span className={`text-[9px] font-black w-3.5 text-center ${
+                      idx === 0 ? 'text-amber-400'
+                        : idx === 1 ? 'text-slate-400'
+                        : idx === 2 ? 'text-orange-500'
+                        : 'text-white/30'
+                    }`}>{idx + 1}</span>
+                    <div
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
+                      style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}
+                    >
+                      {player.avatar?.initial || player.name[0]}
+                    </div>
+                    <span className="max-w-[60px] truncate font-medium">{isMe ? 'You' : player.name}</span>
+                  </div>
+                );
+              })}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-white">Your Speaking Position</p>
-              <p className="text-[11px] text-white/50">
-                {myTurnPosition === 1
-                  ? '🎤 You speak first! Start the discussion.'
-                  : `Wait for ${myTurnPosition - 1} player${myTurnPosition - 1 !== 1 ? 's' : ''} before you.`
-                }
-              </p>
-            </div>
-            <span className="text-xl">{myTurnPosition === 1 ? '🎤' : '⏳'}</span>
           </motion.div>
         )}
 
@@ -330,64 +348,56 @@ export default function DiscussionPage() {
           </form>
         </motion.div>
 
-        {/* ── Speaking Order Panel ── */}
-        <div className="glass p-4 rounded-2xl">
-          <h2 className="font-bold text-white text-sm mb-3 flex items-center justify-between">
-            <span>🎤 Speaking Order ({room.players.length})</span>
-            <span className="text-xs text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20">🎤 Mic Live</span>
+        {/* Players list (compact, no duplication) */}
+        <div className="glass p-3 rounded-2xl">
+          <h2 className="font-bold text-white text-xs mb-2 flex items-center justify-between">
+            <span className="text-white/50 uppercase tracking-wider">Players ({room.players.length})</span>
+            <span className="text-[10px] text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20">🎤 Live</span>
           </h2>
-
-          <div className="space-y-2">
-            {(turnOrder.length > 0 ? turnOrder : room.players.map(p => p.id)).map((playerId, idx) => {
-              const player = playerMap[playerId] || room.players.find(p => p.id === playerId);
-              if (!player) return null;
+          <div className="space-y-1.5">
+            {room.players.map((player) => {
               const isMe = player.id === myId;
               const playerMicOn = isMe ? isMicOn : peerMutedMap[player.id] === false;
+              const turnPos = turnOrder.indexOf(player.id);
               return (
-                <motion.div
+                <div
                   key={player.id}
-                  initial={{ opacity: 0, x: -12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: idx * 0.05 }}
-                  className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all
-                    ${isMe
-                      ? 'border-primary-400/50 bg-primary-500/12 shadow-md shadow-primary-500/10'
-                      : 'border-white/5 bg-white/3'
-                    }`}
+                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border
+                    ${ isMe ? 'border-primary-400/40 bg-primary-500/10' : 'border-white/5 bg-white/3'}`}
                 >
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-black flex-shrink-0
-                    ${idx === 0 ? 'bg-amber-500/30 text-amber-300 border border-amber-500/40'
-                      : idx === 1 ? 'bg-slate-400/20 text-slate-300 border border-slate-400/30'
-                      : idx === 2 ? 'bg-orange-700/25 text-orange-400 border border-orange-600/35'
-                      : 'bg-white/8 text-white/40 border border-white/8'
-                    }`}
-                  >
-                    {idx + 1}
-                  </div>
+                  {/* Turn number */}
+                  {turnPos >= 0 && (
+                    <span className={`text-[10px] font-black w-4 text-center flex-shrink-0
+                      ${ turnPos === 0 ? 'text-amber-400'
+                        : turnPos === 1 ? 'text-slate-400'
+                        : turnPos === 2 ? 'text-orange-500'
+                        : 'text-white/25'
+                      }`}>{turnPos + 1}</span>
+                  )}
+                  {/* Avatar */}
                   <div
-                    className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0
-                      ${isMe ? 'ring-2 ring-primary-400 ring-offset-1 ring-offset-transparent' : ''}`}
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0"
                     style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}
                   >
                     {player.avatar?.initial || player.name[0]}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className={`font-semibold text-sm truncate max-w-[110px] ${isMe ? 'text-primary-200' : 'text-white'}`}>
-                        {player.name}
-                      </span>
-                      {isMe && <span className="badge bg-primary-500/20 text-primary-400 text-[10px]">You</span>}
-                      {player.isHost && <span className="badge bg-amber-500/20 text-amber-400 text-[10px]">👑</span>}
-                    </div>
-                    <div className="text-[10px] text-white/30">{player.score || 0} pts</div>
+                  {/* Name */}
+                  <div className="flex-1 min-w-0 flex items-center gap-1">
+                    <span className={`text-xs font-semibold truncate max-w-[100px] ${isMe ? 'text-primary-200' : 'text-white'}`}>
+                      {player.name}
+                    </span>
+                    {isMe && <span className="text-[9px] text-primary-400 font-bold">You</span>}
+                    {player.isHost && <span className="text-[10px]">👑</span>}
                   </div>
-                  <div className="flex-shrink-0">
+                  {/* Score + mic */}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <span className="text-[10px] text-white/30">{player.score || 0}pt</span>
                     {playerMicOn
-                      ? <span className="text-xs text-green-400 bg-green-500/20 px-2 py-0.5 rounded-full">🗣️</span>
-                      : <span className="text-xs text-white/25">🔇</span>
+                      ? <span className="text-[10px] text-green-400">🗣️</span>
+                      : <span className="text-[10px] text-white/20">🔇</span>
                     }
                   </div>
-                </motion.div>
+                </div>
               );
             })}
           </div>
@@ -395,4 +405,4 @@ export default function DiscussionPage() {
       </div>
     </motion.div>
   );
-}
+}
