@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '../context/GameContext';
 import wordsData from '../data/words.json';
 import sound from '../utils/sound';
+
+const QUICK_EMOJIS = ['😀', '😂', '🔥', '👍', '😎', '🎉', '😱', '💩'];
 
 function resolveWordInfo(myWord, roomConfig = {}) {
   if (!myWord) return null;
@@ -35,10 +37,37 @@ function resolveWordInfo(myWord, roomConfig = {}) {
   return { word: wordText, meaningText, translationText, translations, hints };
 }
 
+function ChatMessageBubble({ message, me }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`flex ${me ? 'justify-end' : 'justify-start'}`}
+    >
+      <div className={`max-w-[85%] rounded-2xl px-3 py-2 shadow-sm ${me ? 'bg-primary-600/80 text-white' : 'bg-white/10 text-white/90 border border-white/10'}`}>
+        {!me && <p className="text-[10px] font-semibold text-primary-300 mb-1">{message.name}</p>}
+        <p className="text-xs leading-5 break-words">{message.text}</p>
+        <p className={`text-[10px] mt-1 ${me ? 'text-white/70' : 'text-white/35'}`}>{message.time}</p>
+      </div>
+    </motion.div>
+  );
+}
+
 export default function DiscussionPage() {
-  const { room, myWord, timer, myId, drawMessage, isMicOn, peerMutedMap, isCardDisabled } = useGame();
+  const {
+    room, myWord, timer, myId, drawMessage, isMicOn,
+    peerMutedMap, isCardDisabled, lobbyMessages, typingUsers,
+    sendLobbyMessage, setTypingStatus
+  } = useGame();
+
   const [showDetails, setShowDetails] = useState(false);
   const [isCardRevealed, setIsCardRevealed] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const chatBottomRef = useRef(null);
+
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [lobbyMessages, typingUsers]);
 
   if (!room) return null;
 
@@ -57,6 +86,30 @@ export default function DiscussionPage() {
     return `${m}:${sec}`;
   };
 
+  function handleInputChange(e) {
+    const val = e.target.value.slice(0, 240);
+    setChatInput(val);
+    setTypingStatus(val.trim().length > 0);
+  }
+
+  function handleSendChat(e) {
+    e.preventDefault();
+    const trimmed = chatInput.trim();
+    if (!trimmed) return;
+    sendLobbyMessage(trimmed);
+    setChatInput('');
+    setTypingStatus(false);
+    sound.click();
+  }
+
+  function addEmoji(emoji) {
+    setChatInput(prev => `${prev}${emoji}`.slice(0, 240));
+    setTypingStatus(true);
+    sound.click();
+  }
+
+  const typingNames = Object.values(typingUsers || {}).filter(Boolean);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -66,8 +119,6 @@ export default function DiscussionPage() {
       style={{ paddingTop: '64px', paddingBottom: '24px' }}
     >
       <div className="max-w-2xl mx-auto px-3 sm:px-4">
-
-        {/* Draw message */}
         {drawMessage && (
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -78,7 +129,6 @@ export default function DiscussionPage() {
           </motion.div>
         )}
 
-        {/* ── Header row: badge + timer ── */}
         <div className="flex items-center justify-between mb-4 gap-3">
           <div className="flex-1 min-w-0">
             <div className="inline-flex items-center gap-1.5 bg-accent-600/20 border border-accent-500/30 rounded-full px-3 py-1 text-accent-300 text-xs">
@@ -88,7 +138,6 @@ export default function DiscussionPage() {
             <h1 className="text-lg sm:text-xl font-bold text-white mt-1">Discussion Table 🗣️</h1>
           </div>
 
-          {/* Compact circular timer */}
           <div className="relative w-16 h-16 flex-shrink-0">
             <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
               <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" />
@@ -109,7 +158,6 @@ export default function DiscussionPage() {
           </div>
         </div>
 
-        {/* ── My Secret Card ── */}
         <div className="glass p-4 mb-4 rounded-2xl">
           <p className="text-xs uppercase text-white/40 tracking-wider mb-3 font-semibold">🃏 Your Secret Card</p>
 
@@ -121,11 +169,7 @@ export default function DiscussionPage() {
             <>
               <motion.div
                 onClick={() => { sound.cardFlip(); setIsCardRevealed(v => !v); }}
-                className={`p-4 rounded-xl cursor-pointer border transition-all duration-300 text-center ${
-                  isCardRevealed
-                    ? 'bg-primary-600/20 border-primary-500'
-                    : 'bg-white/5 border-white/10 hover:bg-white/8'
-                }`}
+                className={`p-4 rounded-xl cursor-pointer border transition-all duration-300 text-center ${isCardRevealed ? 'bg-primary-600/20 border-primary-500' : 'bg-white/5 border-white/10 hover:bg-white/8'}`}
                 style={{ touchAction: 'manipulation' }}
                 whileTap={{ scale: 0.97 }}
               >
@@ -141,18 +185,16 @@ export default function DiscussionPage() {
                       )}
                     </motion.div>
                   ) : (
-                    <motion.span key="hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                      className="text-xs text-white/40">Face down on table</motion.span>
+                    <motion.span key="hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-xs text-white/40">Face down on table</motion.span>
                   )}
                 </AnimatePresence>
               </motion.div>
 
-              {/* Hints accordion */}
               {wordInfo && (
                 <div className="mt-3">
                   <button
                     onClick={() => { sound.cardFlip(); setShowDetails(v => !v); }}
-                    className="text-xs text-primary-300 hover:text-primary-200 font-semibold w-full text-center py-1"
+                    className="text-xs text-primary-300 hover:text-primary-200 font-semibold w-full text-center py-1 cursor-pointer"
                     style={{ touchAction: 'manipulation' }}
                   >
                     {showDetails ? 'Hide Meaning ▲' : 'Show Meaning & Hints ▼'}
@@ -179,13 +221,78 @@ export default function DiscussionPage() {
           )}
         </div>
 
-        {/* ── Players list ── */}
+        <motion.div
+          initial={{ y: 10, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.1 }}
+          className="glass p-4 mb-4 rounded-2xl flex flex-col min-h-[17rem]"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-bold text-white text-xs uppercase tracking-wider text-white/60">💬 Discussion Chat</h3>
+            <span className="text-[10px] text-white/35">Room-wide discussion</span>
+          </div>
+
+          <div className="flex-1 overflow-y-auto space-y-2 pr-1 mb-2 bg-black/20 p-3 rounded-xl border border-white/5 min-h-[8rem]">
+            {lobbyMessages.length === 0 ? (
+              <p className="text-white/30 text-xs text-center py-6 italic">Discuss with others here...</p>
+            ) : (
+              <AnimatePresence initial={false}>
+                {lobbyMessages.map((msg) => (
+                  <ChatMessageBubble key={msg.id || `${msg.name}-${msg.time}-${msg.text}`} message={msg} me={msg.playerId === myId} />
+                ))}
+              </AnimatePresence>
+            )}
+            <div ref={chatBottomRef} />
+          </div>
+
+          {typingNames.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-[11px] text-amber-300/80 italic mb-2 px-1 flex items-center gap-1.5"
+            >
+              <span>✍️</span>
+              <span>{typingNames.join(', ')} {typingNames.length === 1 ? 'is' : 'are'} typing...</span>
+            </motion.div>
+          )}
+
+          <div className="flex gap-1 mb-2 overflow-x-auto py-1 no-scrollbar">
+            {QUICK_EMOJIS.map((emoji, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => addEmoji(emoji)}
+                className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/15 flex items-center justify-center text-sm transition-all active:scale-95 cursor-pointer flex-shrink-0"
+                style={{ touchAction: 'manipulation' }}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+
+          <form onSubmit={handleSendChat} className="flex gap-2">
+            <input
+              type="text"
+              value={chatInput}
+              onChange={handleInputChange}
+              onBlur={() => setTypingStatus(false)}
+              placeholder="Send text or emoji..."
+              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none focus:border-primary-500"
+            />
+            <button
+              type="submit"
+              className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95 flex-shrink-0"
+              style={{ touchAction: 'manipulation' }}
+            >
+              Send 🚀
+            </button>
+          </form>
+        </motion.div>
+
         <div className="glass p-4 rounded-2xl">
           <h2 className="font-bold text-white text-sm mb-3 flex items-center justify-between">
             <span>Players ({room.players.length})</span>
-            <span className="text-xs text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20">
-              🎙️ Live
-            </span>
+            <span className="text-xs text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20">🎙️ Live Voice/Text</span>
           </h2>
 
           <div className="space-y-2">
@@ -212,10 +319,7 @@ export default function DiscussionPage() {
                     <div className="text-xs text-white/30">{player.score || 0} pts</div>
                   </div>
                   <div className="flex-shrink-0">
-                    {playerMicOn
-                      ? <span className="text-xs text-green-400 bg-green-500/20 px-2 py-0.5 rounded-full">🗣️</span>
-                      : <span className="text-xs text-white/25">🔇</span>
-                    }
+                    {playerMicOn ? <span className="text-xs text-green-400 bg-green-500/20 px-2 py-0.5 rounded-full">🗣️</span> : <span className="text-xs text-white/25">🔇</span>}
                   </div>
                 </div>
               );

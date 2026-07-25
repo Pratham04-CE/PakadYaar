@@ -5,26 +5,6 @@ import voiceChat from '../utils/voiceChat';
 
 const GameContext = createContext(null);
 
-// ─────────────────────────────────────────────
-// Session persistence helpers (localStorage)
-// ─────────────────────────────────────────────
-const SESSION_KEY = 'pakadyaar_session';
-
-function saveSession(data) {
-    try { localStorage.setItem(SESSION_KEY, JSON.stringify(data)); } catch (_) {}
-}
-
-function loadSession() {
-    try {
-        const raw = localStorage.getItem(SESSION_KEY);
-        return raw ? JSON.parse(raw) : null;
-    } catch (_) { return null; }
-}
-
-function clearSession() {
-    try { localStorage.removeItem(SESSION_KEY); } catch (_) {}
-}
-
 export function GameProvider({ children }) {
     const [room, setRoom] = useState(null);
     const [myId, setMyId] = useState(null);
@@ -39,96 +19,34 @@ export function GameProvider({ children }) {
     const [hasConfirmedWord, setHasConfirmedWord] = useState(false);
     const [drawMessage, setDrawMessage] = useState(null);
     const [isCardDisabled, setIsCardDisabled] = useState(false);
-    const [reconnecting, setReconnecting] = useState(false);
+    const [leaveNotification, setLeaveNotification] = useState(null);
+
+    // Lobby Chat & Typing States
+    const [lobbyMessages, setLobbyMessages] = useState([]);
+    const [typingUsers, setTypingUsers] = useState({});
 
     const [isMicOn, setIsMicOn] = useState(false);
     const [peerMutedMap, setPeerMutedMap] = useState({});
 
-    // ─────────────────────────────────────────────
-    // Map gameState (server) -> gamePhase (client)
-    // ─────────────────────────────────────────────
-    function serverStateToPhase(state) {
-        const map = {
-            'lobby': 'waiting-room',
-            'word-reveal': 'word-reveal',
-            'discussion': 'discussion',
-            'voting': 'voting',
-            'results': 'results',
-            'game-over': 'game-over',
-        };
-        return map[state] || 'waiting-room';
-    }
-
-    // ─────────────────────────────────────────────
-    // Socket ID + auto-rejoin on (re)connect
-    // ─────────────────────────────────────────────
     useEffect(() => {
         setMyId(socket.id);
-
-        function handleConnect() {
-            setMyId(socket.id);
-            setReconnecting(false);
-
-            // Attempt to rejoin if we have a saved session
-            const session = loadSession();
-            if (session && session.roomCode && session.playerName) {
-                console.log('[GameContext] Attempting rejoin:', session.roomCode, session.playerName);
-                socket.emit('rejoin-room', {
-                    roomCode: session.roomCode,
-                    playerName: session.playerName,
-                });
-            }
-        }
-
-        function handleDisconnect() {
-            setReconnecting(true);
-        }
-
-        socket.on('connect', handleConnect);
-        socket.on('disconnect', handleDisconnect);
-
-        return () => {
-            socket.off('connect', handleConnect);
-            socket.off('disconnect', handleDisconnect);
-        };
+        socket.on('connect', () => setMyId(socket.id));
+        return () => socket.off('connect');
     }, []);
 
-    // ─────────────────────────────────────────────
-    // Game event listeners
-    // ─────────────────────────────────────────────
     useEffect(() => {
         socket.on('room-created', ({ room }) => {
             setRoom(room);
             setGamePhase('waiting-room');
             setError(null);
-            saveSession({ roomCode: room.code, playerName: room.players.find(p => p.id === socket.id)?.name, gamePhase: 'waiting-room' });
+            setLobbyMessages([]);
         });
 
         socket.on('join-success', ({ room }) => {
             setRoom(room);
             setGamePhase('waiting-room');
             setError(null);
-            saveSession({ roomCode: room.code, playerName: room.players.find(p => p.id === socket.id)?.name, gamePhase: 'waiting-room' });
-        });
-
-        // ─── Rejoin success — restore state after refresh ───
-        socket.on('rejoin-success', ({ room, gameState }) => {
-            setRoom(room);
-            const phase = serverStateToPhase(gameState);
-            setGamePhase(phase);
-            setError(null);
-            setReconnecting(false);
-            const me = room.players.find(p => p.id === socket.id);
-            if (me) {
-                saveSession({ roomCode: room.code, playerName: me.name, gamePhase: phase });
-            }
-            console.log('[GameContext] Rejoined room', room.code, '— phase:', phase);
-        });
-
-        socket.on('rejoin-error', ({ message }) => {
-            clearSession();
-            setReconnecting(false);
-            console.log('[GameContext] Rejoin failed:', message);
+            setLobbyMessages([]);
         });
 
         socket.on('room-updated', ({ room }) => {
@@ -143,23 +61,18 @@ export function GameProvider({ children }) {
         socket.on('start-error', ({ message }) => setError(message));
         socket.on('error', ({ message }) => setError(message));
 
-        // ─── Kicked from room ───
-        socket.on('kicked-from-room', ({ message }) => {
-            clearSession();
-            voiceChat.closeAll();
-            setIsMicOn(false);
-            setPeerMutedMap({});
-            setRoom(null);
-            setMyWord(null);
-            setResults(null);
-            setFinalResults(null);
-            setTimer(null);
-            setIsCardDisabled(false);
-            setGamePhase('home');
-            setError(message || 'You were removed from the room.');
-        });
+        // --- FIXED: Player Left Notification with Exact Name Lookup ---
+        socket.on('player-left', ({ playerId, playerName }) => {
+            // Agar backend se name nahi aaya toh room players list me se dhoond lo
+            let nameToDisplay = playerName;
+            if (!nameToDisplay && room && room.players) {
+                const foundPlayer = room.players.find(p => p.id === playerId);
+                if (foundPlayer) nameToDisplay = foundPlayer.name;
+            }
 
-        socket.on('player-left', ({ playerId }) => {
+            setLeaveNotification(`${nameToDisplay || 'A player'} has left the room.`);
+            setTimeout(() => setLeaveNotification(null), 4000);
+
             voiceChat.closePeerConnection(playerId);
             setPeerMutedMap(prev => {
                 const next = { ...prev };
@@ -168,9 +81,20 @@ export function GameProvider({ children }) {
             });
         });
 
-        // Temporarily disconnected (grace period) — just update room state when server sends room-updated
-        socket.on('player-disconnected', ({ playerId, playerName }) => {
-            console.log(`[GameContext] ${playerName} temporarily disconnected`);
+        socket.on('lobby-message-received', (messageData) => {
+            setLobbyMessages(prev => [...prev, messageData]);
+        });
+
+        socket.on('user-typing-status', ({ playerId, playerName, isTyping }) => {
+            setTypingUsers(prev => {
+                const updated = { ...prev };
+                if (isTyping) {
+                    updated[playerId] = playerName;
+                } else {
+                    delete updated[playerId];
+                }
+                return updated;
+            });
         });
 
         socket.on('user-joined-voice', ({ playerId }) => {
@@ -202,8 +126,6 @@ export function GameProvider({ children }) {
             setIsCardDisabled(false);
             setGamePhase('word-reveal');
             sound.start();
-            const me = room.players.find(p => p.id === socket.id);
-            if (me) saveSession({ roomCode: room.code, playerName: me.name, gamePhase: 'word-reveal' });
         });
 
         socket.on('your-word', (assignment) => {
@@ -221,8 +143,6 @@ export function GameProvider({ children }) {
             setDrawMessage(null);
             setIsCardDisabled(false);
             sound.start();
-            const session = loadSession();
-            if (session) saveSession({ ...session, gamePhase: 'discussion' });
         });
 
         socket.on('timer-tick', ({ remaining, phase }) => {
@@ -238,8 +158,6 @@ export function GameProvider({ children }) {
             setGamePhase('voting');
             setIsCardDisabled(true);
             sound.start();
-            const session = loadSession();
-            if (session) saveSession({ ...session, gamePhase: 'voting' });
         });
 
         socket.on('vote-cast', ({ voterId, targetId }) => {
@@ -252,8 +170,6 @@ export function GameProvider({ children }) {
             setGamePhase('discussion');
             setIsCardDisabled(false);
             sound.draw();
-            const session = loadSession();
-            if (session) saveSession({ ...session, gamePhase: 'discussion' });
         });
 
         socket.on('vote-results', (data) => {
@@ -265,16 +181,12 @@ export function GameProvider({ children }) {
             } else {
                 sound.defeat();
             }
-            const session = loadSession();
-            if (session) saveSession({ ...session, gamePhase: 'results' });
         });
 
         socket.on('game-over', (data) => {
             setFinalResults(data);
             setGamePhase('game-over');
             sound.victory();
-            const session = loadSession();
-            if (session) saveSession({ ...session, gamePhase: 'game-over' });
         });
 
         socket.on('game-reset', ({ room }) => {
@@ -289,23 +201,19 @@ export function GameProvider({ children }) {
             setDrawMessage(null);
             setIsCardDisabled(false);
             setGamePhase('waiting-room');
-            const me = room.players.find(p => p.id === socket.id);
-            if (me) saveSession({ roomCode: room.code, playerName: me.name, gamePhase: 'waiting-room' });
         });
 
         return () => {
             socket.off('room-created');
             socket.off('join-success');
-            socket.off('rejoin-success');
-            socket.off('rejoin-error');
             socket.off('room-updated');
             socket.off('config-updated');
             socket.off('join-error');
             socket.off('start-error');
             socket.off('error');
-            socket.off('kicked-from-room');
             socket.off('player-left');
-            socket.off('player-disconnected');
+            socket.off('lobby-message-received');
+            socket.off('user-typing-status');
             socket.off('user-joined-voice');
             socket.off('voice-signal');
             socket.off('voice-mute-status');
@@ -321,6 +229,15 @@ export function GameProvider({ children }) {
             socket.off('game-over');
             socket.off('game-reset');
         };
+    }, [room]);
+
+    const sendLobbyMessage = useCallback((text) => {
+        if (!text || !text.trim()) return;
+        socket.emit('send-lobby-message', { text: text.trim() });
+    }, []);
+
+    const setTypingStatus = useCallback((isTyping) => {
+        socket.emit('typing-status', { isTyping });
     }, []);
 
     const toggleMic = useCallback(async () => {
@@ -360,7 +277,6 @@ export function GameProvider({ children }) {
     }, []);
 
     const leaveRoom = useCallback(() => {
-        clearSession(); // Intentional leave — don't auto-rejoin
         socket.emit('leave-room');
         voiceChat.closeAll();
         setIsMicOn(false);
@@ -372,11 +288,9 @@ export function GameProvider({ children }) {
         setTimer(null);
         setError(null);
         setIsCardDisabled(false);
+        setLeaveNotification(null);
+        setLobbyMessages([]);
         setGamePhase('home');
-    }, []);
-
-    const kickPlayer = useCallback((playerId) => {
-        socket.emit('kick-player', { playerId });
     }, []);
 
     const updateConfig = useCallback((config) => {
@@ -409,6 +323,10 @@ export function GameProvider({ children }) {
         socket.emit('play-again');
     }, []);
 
+    const kickPlayer = useCallback((playerId) => {
+        socket.emit('kick-player', { playerId });
+    }, []);
+
     const clearError = useCallback(() => setError(null), []);
 
     const isHost = room && myId && room.host === myId;
@@ -431,14 +349,17 @@ export function GameProvider({ children }) {
         isHost,
         myPlayer,
         isCardDisabled,
+        leaveNotification,
+        lobbyMessages,
+        typingUsers,
+        sendLobbyMessage,
+        setTypingStatus,
         isMicOn,
         peerMutedMap,
-        reconnecting,
         toggleMic,
         createRoom,
         joinRoom,
         leaveRoom,
-        kickPlayer,
         updateConfig,
         startGame,
         confirmWord,
@@ -446,28 +367,13 @@ export function GameProvider({ children }) {
         castVote,
         nextRound,
         playAgain,
+        kickPlayer,
         clearError,
     };
 
     return (
         <GameContext.Provider value={value}>
             {children}
-            {/* Reconnecting overlay */}
-            {reconnecting && (
-                <div style={{
-                    position: 'fixed', inset: 0, zIndex: 9999,
-                    background: 'rgba(10,10,20,0.85)',
-                    display: 'flex', flexDirection: 'column',
-                    alignItems: 'center', justifyContent: 'center',
-                    backdropFilter: 'blur(8px)',
-                }}>
-                    <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>🔄</div>
-                    <p style={{ color: '#a78bfa', fontWeight: 700, fontSize: '1.1rem' }}>Reconnecting…</p>
-                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', marginTop: '6px' }}>
-                        Don't close this tab — you'll rejoin automatically
-                    </p>
-                </div>
-            )}
         </GameContext.Provider>
     );
 }

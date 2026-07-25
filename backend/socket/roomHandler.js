@@ -15,8 +15,6 @@ const DEFAULT_CONFIG = {
 };
 
 // Grace-period timers: socketId -> setTimeout handle
-// When a socket disconnects, we wait GRACE_MS before actually removing the player.
-// If they rejoin before that, the timer is cancelled.
 const disconnectTimers = new Map();
 const GRACE_MS = 6000; // 6 seconds
 
@@ -32,7 +30,6 @@ function roomHandler(io, socket) {
             return;
         }
 
-        // Generate a unique room code
         let code;
         do { code = generateRoomCode(); } while (rooms.has(code));
 
@@ -135,14 +132,12 @@ function roomHandler(io, socket) {
 
         const oldSocketId = room.players[playerIndex].id;
 
-        // Cancel any pending grace-period removal for the old socket
         if (disconnectTimers.has(oldSocketId)) {
             clearTimeout(disconnectTimers.get(oldSocketId));
             disconnectTimers.delete(oldSocketId);
             console.log(`Grace period cancelled for ${name} (${oldSocketId})`);
         }
 
-        // Swap socket IDs
         const player = room.players[playerIndex];
         playerRooms.delete(oldSocketId);
 
@@ -150,23 +145,20 @@ function roomHandler(io, socket) {
         playerRooms.set(socket.id, code);
         socket.join(code);
 
-        // If this player was the host, update room.host
         if (room.host === oldSocketId) {
             room.host = socket.id;
         }
 
-        // Also update confirmedWords set if old ID was in there
         if (room.confirmedWords.has(oldSocketId)) {
             room.confirmedWords.delete(oldSocketId);
             room.confirmedWords.add(socket.id);
         }
 
-        // Also update votes map if old ID voted
         if (room.votes && room.votes[oldSocketId] !== undefined) {
             room.votes[socket.id] = room.votes[oldSocketId];
             delete room.votes[oldSocketId];
         }
-        // Update any vote targets pointing to old ID
+
         if (room.votes) {
             for (const [voterId, targetId] of Object.entries(room.votes)) {
                 if (targetId === oldSocketId) {
@@ -177,23 +169,19 @@ function roomHandler(io, socket) {
 
         console.log(`${name} rejoined room ${code} (${oldSocketId} -> ${socket.id})`);
 
-        // Send full room state back
         socket.emit('rejoin-success', {
             room: sanitizeRoom(room),
             gameState: room.gameState
         });
 
-        // If game in progress, resend their private word
         if (room.words && room.words[socket.id]) {
             socket.emit('your-word', room.words[socket.id]);
         } else if (room.words && room.words[oldSocketId]) {
-            // Word was stored under old ID — migrate it
             room.words[socket.id] = room.words[oldSocketId];
             delete room.words[oldSocketId];
             socket.emit('your-word', room.words[socket.id]);
         }
 
-        // Notify other players that room updated
         io.to(code).emit('room-updated', { room: sanitizeRoom(room) });
     });
 
@@ -201,7 +189,7 @@ function roomHandler(io, socket) {
     // LEAVE ROOM (intentional quit)
     // ─────────────────────────────────────────────
     socket.on('leave-room', () => {
-        handleLeave(io, socket, true);
+        handleLeave(io, socket);
     });
 
     // ─────────────────────────────────────────────
@@ -212,28 +200,23 @@ function roomHandler(io, socket) {
         if (!roomCode) return;
         const room = rooms.get(roomCode);
         if (!room || room.host !== socket.id) return;
-        if (playerId === socket.id) return; // Can't kick yourself
+        if (playerId === socket.id) return;
 
         const target = room.players.find(p => p.id === playerId);
         if (!target) return;
 
-        // Remove from room
         room.players = room.players.filter(p => p.id !== playerId);
         room.confirmedWords.delete(playerId);
         playerRooms.delete(playerId);
 
-        // Clean up grace timer if any
         if (disconnectTimers.has(playerId)) {
             clearTimeout(disconnectTimers.get(playerId));
             disconnectTimers.delete(playerId);
         }
 
-        // Tell the kicked player they've been removed
         io.to(playerId).emit('kicked-from-room', { message: 'You were removed by the host.' });
-
-        // Update all remaining players
         io.to(roomCode).emit('room-updated', { room: sanitizeRoom(room) });
-        io.to(roomCode).emit('player-left', { playerId });
+        io.to(roomCode).emit('player-left', { playerId, playerName: target.name });
 
         console.log(`${target.name} was kicked from room ${roomCode}`);
     });
@@ -276,7 +259,7 @@ function roomHandler(io, socket) {
     });
 
     // ─────────────────────────────────────────────
-    // CONFIRM WORD SEEN (marks player ready for discussion)
+    // CONFIRM WORD SEEN
     // ─────────────────────────────────────────────
     socket.on('confirm-word', () => {
         const roomCode = playerRooms.get(socket.id);
@@ -294,7 +277,49 @@ function roomHandler(io, socket) {
     });
 
     // ─────────────────────────────────────────────
-    // DISCONNECT — grace period before removing
+    // LOBBY & DISCUSSION CHAT & TYPING EVENTS
+    // ─────────────────────────────────────────────
+    socket.on('send-lobby-message', ({ text }) => {
+        const roomCode = playerRooms.get(socket.id);
+        if (!roomCode) return;
+        const room = rooms.get(roomCode);
+        if (!room) return;
+
+        const player = room.players.find(p => p.id === socket.id);
+        const playerName = player ? player.name : 'Unknown';
+        const messageText = typeof text === 'string' ? text.trim() : '';
+
+        if (!messageText) return;
+
+        const messageData = {
+            id: `${socket.id}-${Date.now()}`,
+            playerId: socket.id,
+            name: playerName,
+            text: messageText.slice(0, 240),
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+
+        io.to(roomCode).emit('lobby-message-received', messageData);
+    });
+
+    socket.on('typing-status', ({ isTyping }) => {
+        const roomCode = playerRooms.get(socket.id);
+        if (!roomCode) return;
+        const room = rooms.get(roomCode);
+        if (!room) return;
+
+        const player = room.players.find(p => p.id === socket.id);
+        const playerName = player ? player.name : 'Someone';
+
+        socket.to(roomCode).emit('user-typing-status', {
+            playerId: socket.id,
+            playerName: playerName,
+            isTyping: Boolean(isTyping)
+        });
+    });
+
+    // ─────────────────────────────────────────────
+    // DISCONNECT
     // ─────────────────────────────────────────────
     socket.on('disconnect', () => {
         const roomCode = playerRooms.get(socket.id);
@@ -311,13 +336,11 @@ function roomHandler(io, socket) {
 
         console.log(`${player.name} disconnected from ${roomCode}, starting ${GRACE_MS}ms grace period`);
 
-        // Notify others that player is temporarily disconnected
         io.to(roomCode).emit('player-disconnected', { playerId: socket.id, playerName: player.name });
 
-        // Start grace-period timer
         const timer = setTimeout(() => {
             disconnectTimers.delete(socket.id);
-            handleLeave(io, socket, false);
+            handleLeave(io, socket);
             console.log(`Grace period expired for ${player.name} — removed from ${roomCode}`);
         }, GRACE_MS);
 
@@ -329,7 +352,7 @@ function roomHandler(io, socket) {
 // HELPERS
 // ─────────────────────────────────────────────
 
-function handleLeave(io, socket, isIntentional = true) {
+function handleLeave(io, socket) {
     const roomCode = playerRooms.get(socket.id);
     if (!roomCode) return;
 
@@ -338,6 +361,9 @@ function handleLeave(io, socket, isIntentional = true) {
         playerRooms.delete(socket.id);
         return;
     }
+
+    const leavingPlayer = room.players.find(p => p.id === socket.id);
+    const leavingPlayerName = leavingPlayer ? leavingPlayer.name : 'A player';
 
     playerRooms.delete(socket.id);
     room.players = room.players.filter(p => p.id !== socket.id);
@@ -351,7 +377,6 @@ function handleLeave(io, socket, isIntentional = true) {
         return;
     }
 
-    // Re-assign host if the host left
     if (room.host === socket.id) {
         room.players[0].isHost = true;
         room.host = room.players[0].id;
@@ -359,7 +384,7 @@ function handleLeave(io, socket, isIntentional = true) {
     }
 
     io.to(roomCode).emit('room-updated', { room: sanitizeRoom(room) });
-    io.to(roomCode).emit('player-left', { playerId: socket.id });
+    io.to(roomCode).emit('player-left', { playerId: socket.id, playerName: leavingPlayerName });
 }
 
 function startNewRound(io, room) {
@@ -369,12 +394,10 @@ function startNewRound(io, room) {
     room.confirmedWords = new Set();
     room.gameState = 'word-reveal';
 
-    // Broadcast public game state (without private words)
     io.to(room.code).emit('game-started', {
         room: sanitizeRoom(room)
     });
 
-    // Send each player their private word
     room.players.forEach(player => {
         io.to(player.id).emit('your-word', room.words[player.id]);
     });
@@ -387,7 +410,6 @@ function clearRoomTimers(room) {
     if (room.timers.voting) clearInterval(room.timers.voting);
 }
 
-// Remove server-only fields before sending to clients
 function sanitizeRoom(room) {
     return {
         code: room.code,
@@ -401,7 +423,6 @@ function sanitizeRoom(room) {
     };
 }
 
-// Generate a simple color avatar based on the first character of name
 function generateAvatar(name) {
     const colors = ['#7c3aed', '#06b6d4', '#f59e0b', '#10b981', '#ef4444', '#3b82f6', '#ec4899', '#8b5cf6'];
     const index = name.charCodeAt(0) % colors.length;
