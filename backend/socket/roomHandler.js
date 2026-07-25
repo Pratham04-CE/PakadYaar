@@ -296,7 +296,9 @@ function roomHandler(io, socket) {
             playerId: socket.id,
             name: playerName,
             text: messageText.slice(0, 240),
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            // Send raw UTC epoch so each client can format in their own local timezone
+            sentAt: new Date().toISOString(),
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) // fallback
         };
 
         io.to(roomCode).emit('lobby-message-received', messageData);

@@ -28,10 +28,31 @@ export function GameProvider({ children }) {
     const [isMicOn, setIsMicOn] = useState(false);
     const [peerMutedMap, setPeerMutedMap] = useState({});
 
+    // On every connect (initial or after page-refresh reconnect), attempt to rejoin
     useEffect(() => {
-        setMyId(socket.id);
-        socket.on('connect', () => setMyId(socket.id));
-        return () => socket.off('connect');
+        function handleConnect() {
+            setMyId(socket.id);
+
+            // Attempt rejoin if there is a saved session in sessionStorage
+            const savedSession = sessionStorage.getItem('pakadyaar_session');
+            if (savedSession) {
+                try {
+                    const { roomCode, playerName } = JSON.parse(savedSession);
+                    if (roomCode && playerName) {
+                        socket.emit('rejoin-room', { roomCode, playerName });
+                    }
+                } catch (e) {
+                    sessionStorage.removeItem('pakadyaar_session');
+                }
+            }
+        }
+
+        // socket.id is available immediately if already connected
+        if (socket.connected) {
+            setMyId(socket.id);
+        }
+        socket.on('connect', handleConnect);
+        return () => socket.off('connect', handleConnect);
     }, []);
 
     useEffect(() => {
@@ -40,6 +61,14 @@ export function GameProvider({ children }) {
             setGamePhase('waiting-room');
             setError(null);
             setLobbyMessages([]);
+            // Save session so page refresh can rejoin
+            const myPlayer = room.players.find(p => p.id === socket.id);
+            if (myPlayer) {
+                sessionStorage.setItem('pakadyaar_session', JSON.stringify({
+                    roomCode: room.code,
+                    playerName: myPlayer.name
+                }));
+            }
         });
 
         socket.on('join-success', ({ room }) => {
@@ -47,6 +76,45 @@ export function GameProvider({ children }) {
             setGamePhase('waiting-room');
             setError(null);
             setLobbyMessages([]);
+            // Save session so page refresh can rejoin
+            const myPlayer = room.players.find(p => p.id === socket.id);
+            if (myPlayer) {
+                sessionStorage.setItem('pakadyaar_session', JSON.stringify({
+                    roomCode: room.code,
+                    playerName: myPlayer.name
+                }));
+            }
+        });
+
+        // Rejoin success — restore full game state after page refresh
+        socket.on('rejoin-success', ({ room, gameState }) => {
+            setRoom(room);
+            setError(null);
+            // Map server gameState to our frontend phase
+            const phaseMap = {
+                lobby: 'waiting-room',
+                'word-reveal': 'word-reveal',
+                discussion: 'discussion',
+                voting: 'voting',
+                results: 'results',
+                'game-over': 'game-over',
+            };
+            setGamePhase(phaseMap[gameState] || 'waiting-room');
+            // Update session with latest room code (host may have changed)
+            const myPlayer = room.players.find(p => p.id === socket.id);
+            if (myPlayer) {
+                sessionStorage.setItem('pakadyaar_session', JSON.stringify({
+                    roomCode: room.code,
+                    playerName: myPlayer.name
+                }));
+            }
+        });
+
+        // Rejoin failed — stale session, clear it and go home
+        socket.on('rejoin-error', () => {
+            sessionStorage.removeItem('pakadyaar_session');
+            setGamePhase('home');
+            setRoom(null);
         });
 
         socket.on('room-updated', ({ room }) => {
@@ -82,7 +150,14 @@ export function GameProvider({ children }) {
         });
 
         socket.on('lobby-message-received', (messageData) => {
-            setLobbyMessages(prev => [...prev, messageData]);
+            // Format timestamp on the client so it uses the user's local timezone
+            const formatted = {
+                ...messageData,
+                time: messageData.sentAt
+                    ? new Date(messageData.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    : messageData.time
+            };
+            setLobbyMessages(prev => [...prev, formatted]);
         });
 
         socket.on('user-typing-status', ({ playerId, playerName, isTyping }) => {
@@ -206,6 +281,8 @@ export function GameProvider({ children }) {
         return () => {
             socket.off('room-created');
             socket.off('join-success');
+            socket.off('rejoin-success');
+            socket.off('rejoin-error');
             socket.off('room-updated');
             socket.off('config-updated');
             socket.off('join-error');
@@ -278,6 +355,8 @@ export function GameProvider({ children }) {
 
     const leaveRoom = useCallback(() => {
         socket.emit('leave-room');
+        // Clear session so page refresh doesn't try to rejoin after intentional leave
+        sessionStorage.removeItem('pakadyaar_session');
         voiceChat.closeAll();
         setIsMicOn(false);
         setPeerMutedMap({});
