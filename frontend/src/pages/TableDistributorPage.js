@@ -31,7 +31,7 @@ export default function TableDistributorPage() {
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
+ useEffect(() => {
     if (!room) return;
     setAnimatingDeal(true);
     sound.cardFlip();
@@ -41,8 +41,7 @@ export default function TableDistributorPage() {
     if (currentTheme?.dealer?.quote) {
       speakDealer(currentTheme.dealer.quote, currentThemeKey);
     }
-  }, [room?.currentRound]);
-
+  }, [room, room?.currentRound, room?.config]);
   if (!room) return null;
 
   const cfg = room.config || {};
