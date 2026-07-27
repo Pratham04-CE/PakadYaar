@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useGame } from '../context/GameContext';
 import { REGIONAL_THEMES } from '../data/themes';
+import sound from '../utils/sound';
 
 export default function ResultsPage() {
-  const { room, myId, results, isHost, nextRound } = useGame();
+  const { room, results, isHost, nextRound, playAgain, leaveRoom } = useGame();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   useEffect(() => {
@@ -13,7 +14,7 @@ export default function ResultsPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  if (!room || !results) return null;
+  if (!room) return null;
 
   const cfg = room.config || {};
   const currentThemeKey = cfg.theme || 'gujarat';
@@ -23,96 +24,77 @@ export default function ResultsPage() {
     ? currentTheme.background?.mobile 
     : currentTheme.background?.desktop;
 
-  const {
-    voteCounts,
-    eliminatedId,
-    eliminatedName,
-    eliminatedIsImposter,
-    winnerSide,
-    words,
-    scores,
-    currentRound,
-    totalRounds,
-    isLastRound
-  } = results;
+  const winnerSide = results?.winnerSide || 'crew';
+  const imposterIds = results?.imposterIds || [];
+  const secretWord = results?.secretWord || 'N/A';
+  const scores = results?.scores || room.players || [];
 
-  const playersWin = winnerSide === 'players';
+  const isLastRound = room.currentRound >= room.totalRounds;
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="min-h-screen relative overflow-hidden bg-slate-950"
+      className="min-h-screen relative overflow-hidden bg-slate-950 flex flex-col items-center justify-center p-4"
       style={{
         backgroundImage: bgImage ? `url(${bgImage})` : 'none',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        paddingTop: '64px',
-        paddingBottom: '32px',
+        paddingTop: '60px',
+        paddingBottom: '40px',
       }}
     >
-      <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-[2px] pointer-events-none" />
+      <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-[1px] pointer-events-none" />
 
-      <div className="max-w-2xl mx-auto px-3 sm:px-4 relative z-10">
-        <div className="text-center mb-4">
-          <span className="text-xs text-white/60">Round {currentRound} of {totalRounds}</span>
-        </div>
-
-        {/* Winner Banner */}
+      <div className="max-w-md w-full relative z-10 space-y-4">
         <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 180, delay: 0.1 }}
-          className={`
-            glass-strong p-5 text-center mb-4 rounded-2xl
-            ${playersWin ? 'glow-teal border-accent-500/40' : 'glow-rose border-rose-500/40'}
-          `}
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className={`glass-strong p-5 text-center rounded-3xl border-2 ${winnerSide === 'players' ? 'border-emerald-500/50 glow-emerald' : 'border-rose-500/50 glow-rose'}`}
         >
-          <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: 3, duration: 0.5 }} className="text-5xl sm:text-6xl mb-3">
-            {playersWin ? '🏆' : '😈'}
-          </motion.div>
-          <h1 className={`text-2xl sm:text-3xl font-black mb-1 ${playersWin ? 'text-accent-300' : 'text-rose-300'}`}>
-            {playersWin ? 'Players Win!' : 'Imposter Wins!'}
+          <span className="text-4xl mb-2 inline-block">
+            {winnerSide === 'players' ? '🎉' : '😈'}
+          </span>
+          <h1 className="text-2xl font-black text-white tracking-wide">
+            {winnerSide === 'players' ? 'Crew Wins!' : 'Imposter Wins!'}
           </h1>
-          <p className="text-white/80 text-sm">
-            {eliminatedName} was {eliminatedIsImposter ? 'the' : 'NOT the'} imposter.
+          <p className="text-xs text-white/70 mt-1">
+            {winnerSide === 'players' ? 'The imposter was successfully caught.' : 'Imposter fooled everyone!'}
           </p>
-        </motion.div>
 
-        {/* Eliminated Player */}
-        <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.3 }} className="glass p-4 mb-4 flex items-center gap-3 rounded-2xl">
-          <div className="text-2xl flex-shrink-0">{eliminatedIsImposter ? '🎭' : '😇'}</div>
-          <div className="flex-1 min-w-0">
-            <p className="text-white/60 text-xs">Most votes received</p>
-            <p className="text-lg font-bold text-white truncate">{eliminatedName}</p>
-            <p className={`text-xs font-semibold mt-0.5 ${eliminatedIsImposter ? 'text-rose-400' : 'text-green-400'}`}>
-              {eliminatedIsImposter ? '👺 Was the Imposter!' : '😇 Was Innocent!'}
-            </p>
-          </div>
-          <div className="text-center flex-shrink-0">
-            <div className="text-2xl font-black text-rose-400">{voteCounts[eliminatedId] || 0}</div>
-            <div className="text-[10px] text-white/50">votes</div>
+          <div className="mt-3 pt-3 border-t border-white/10 flex justify-around text-xs">
+            <div>
+              <span className="text-white/50 block">Secret Word</span>
+              <span className="font-bold text-amber-300 uppercase">{secretWord}</span>
+            </div>
+            <div>
+              <span className="text-white/50 block">Round</span>
+              <span className="font-bold text-white">{room.currentRound} / {room.totalRounds}</span>
+            </div>
           </div>
         </motion.div>
 
-        {/* Word Reveal */}
-        <motion.div initial={{ y: 16, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }} className="glass p-4 mb-4 rounded-2xl">
-          <h2 className="font-bold text-white text-sm mb-3">🔓 Word Reveal</h2>
-          <div className="space-y-2">
-            {scores.map((player, i) => {
-              const assignment = words[player.id];
-              const isImposter = assignment?.isImposter;
+        <motion.div
+          initial={{ y: 10, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.1 }}
+          className="glass p-4 rounded-2xl shadow-xl"
+        >
+          <h2 className="font-bold text-white text-xs uppercase tracking-wider mb-3 text-white/80">
+            📊 Standings & Roles
+          </h2>
+
+          <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+            {scores.map((player) => {
+              const isImposter = imposterIds.includes(player.id);
               return (
-                <motion.div
+                <div
                   key={player.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 + i * 0.04 }}
-                  className={`flex items-center gap-3 p-3 rounded-xl border ${isImposter ? 'border-rose-500/40 bg-rose-500/15' : 'border-white/10 bg-white/5'}`}
+                  className="flex items-center gap-3 p-2.5 rounded-xl bg-black/40 border border-white/10"
                 >
                   <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0 overflow-hidden"
+                    className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs text-white flex-shrink-0 overflow-hidden shadow-md"
                     style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}
                   >
                     {player.avatar?.image ? (
@@ -121,81 +103,59 @@ export default function ResultsPage() {
                       player.avatar?.initial || player.name[0]
                     )}
                   </div>
+
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-semibold text-white text-sm truncate max-w-[110px]">{player.name}</span>
-                      {player.id === myId && <span className="badge bg-primary-500/20 text-primary-400">You</span>}
-                      {isImposter && <span className="badge bg-rose-500/20 text-rose-400">😈 Imposter</span>}
-                    </div>
-                    <div className={`text-xs font-bold mt-0.5 ${isImposter ? 'text-rose-300' : 'text-accent-300'}`}>
-                      {assignment?.word || '?'}
-                      {assignment?.translationText && assignment.translationText !== assignment.word && (
-                        <span className="text-white/70 ml-1">({assignment.translationText})</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-white text-xs truncate">{player.name}</span>
+                      {isImposter ? (
+                        <span className="text-[9px] bg-rose-600 text-white px-2 py-0.5 rounded-full font-bold">Imposter</span>
+                      ) : (
+                        <span className="text-[9px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold">Crew</span>
                       )}
                     </div>
                   </div>
-                  <div className="text-xs text-white/50 flex-shrink-0">{voteCounts[player.id] || 0} votes</div>
-                </motion.div>
+
+                  <div className="text-right flex-shrink-0">
+                    <span className="text-xs font-black text-amber-400">{player.score || 0} pts</span>
+                  </div>
+                </div>
               );
             })}
           </div>
         </motion.div>
 
-        {/* Scoreboard */}
-        <motion.div initial={{ y: 16, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.55 }} className="glass p-4 mb-5 rounded-2xl">
-          <h2 className="font-bold text-white text-sm mb-3">🏅 Scores</h2>
-          <div className="space-y-2">
-            {[...scores].sort((a, b) => (b.score || 0) - (a.score || 0)).map((player, i) => (
-              <motion.div
-                key={player.id}
-                initial={{ opacity: 0, x: -16 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.65 + i * 0.04 }}
-                className={`flex items-center gap-3 p-2.5 rounded-xl ${player.id === myId ? 'bg-primary-500/20 border border-primary-500/40' : 'bg-white/5'}`}
-              >
-                <span className="text-lg w-7 text-center flex-shrink-0">
-                  {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}
-                </span>
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0 overflow-hidden"
-                  style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}
-                >
-                  {player.avatar?.image ? (
-                    <img src={player.avatar.image} alt="Avatar" className="w-full h-full object-cover" />
-                  ) : (
-                    player.avatar?.initial || player.name[0]
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <span className="font-semibold text-white text-sm truncate block">{player.name}</span>
-                  {player.id === myId && <span className="text-[10px] text-primary-400">You</span>}
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <span className="text-base font-black text-accent-400">{player.score || 0}</span>
-                  <span className="text-white/50 text-xs ml-0.5">pts</span>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Actions */}
-        {isHost ? (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}>
+        <div className="space-y-2 pt-2">
+          {isHost ? (
             <button
-              id="next-round-btn"
-              onClick={nextRound}
-              className={`${isLastRound ? 'btn-danger' : 'btn-primary'} w-full py-4 text-base`}
+              onClick={() => { sound.click(); nextRound(); }}
+              className="w-full py-3.5 bg-primary-600 hover:bg-primary-500 text-white font-bold rounded-2xl text-sm shadow-xl transition-all cursor-pointer active:scale-95"
               style={{ touchAction: 'manipulation' }}
             >
-              {isLastRound ? '🏁 See Final Results' : '▶️ Next Round'}
+              {isLastRound ? '🏆 View Final Game Over' : '▶️ Next Round'}
             </button>
-          </motion.div>
-        ) : (
-          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center text-white/50 text-sm">
-            Waiting for host to continue…
-          </motion.p>
-        )}
+          ) : (
+            <p className="text-center text-white/50 text-xs italic">
+              Waiting for host to proceed...
+            </p>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => { sound.click(); playAgain(); }}
+              className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl text-xs border border-white/20 transition-all cursor-pointer active:scale-95"
+              style={{ touchAction: 'manipulation' }}
+            >
+              🔄 Play Again
+            </button>
+            <button
+              onClick={() => { sound.click(); leaveRoom(); }}
+              className="flex-1 py-3 bg-rose-600/30 hover:bg-rose-600/50 text-rose-300 font-bold rounded-xl text-xs border border-rose-500/30 transition-all cursor-pointer active:scale-95"
+              style={{ touchAction: 'manipulation' }}
+            >
+              🚪 Leave Room
+            </button>
+          </div>
+        </div>
       </div>
     </motion.div>
   );
