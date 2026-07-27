@@ -57,7 +57,7 @@ export default function DiscussionPage() {
   const {
     room, myWord, timer, myId, drawMessage, isMicOn,
     peerMutedMap, isCardDisabled, lobbyMessages, typingUsers,
-    sendLobbyMessage, setTypingStatus
+    sendLobbyMessage, setTypingStatus, turnOrder
   } = useGame();
 
   const [showDetails, setShowDetails] = useState(false);
@@ -110,6 +110,14 @@ export default function DiscussionPage() {
 
   const typingNames = Object.values(typingUsers || {}).filter(Boolean);
 
+  // Build a fast player lookup map
+  const playerMap = Object.fromEntries((room?.players || []).map(p => [p.id, p]));
+
+  // Find my position in the speaking order (1-indexed)
+  const myTurnIndex = turnOrder.indexOf(myId);
+  const myTurnPosition = myTurnIndex >= 0 ? myTurnIndex + 1 : null;
+  const ordinals = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th'];
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -157,6 +165,57 @@ export default function DiscussionPage() {
             </div>
           </div>
         </div>
+
+        {/* Compact Speaking Order Strip */}
+        {turnOrder.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4"
+          >
+            <p className="text-[10px] text-white/35 uppercase tracking-wider mb-1.5 font-semibold flex items-center gap-1">
+              <span>🎤</span> Speaking Order
+              {myTurnPosition !== null && (
+                <span className={`ml-auto font-bold ${
+                  myTurnPosition === 1 ? 'text-amber-300' : 'text-primary-300'
+                }`}>
+                  You #{myTurnPosition}
+                </span>
+              )}
+            </p>
+            <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+              {turnOrder.map((playerId, idx) => {
+                const player = playerMap[playerId];
+                if (!player) return null;
+                const isMe = playerId === myId;
+                return (
+                  <div
+                    key={playerId}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg flex-shrink-0 border text-[11px]
+                      ${ isMe
+                        ? 'bg-primary-500/20 border-primary-400/50 text-primary-200'
+                        : 'bg-white/5 border-white/8 text-white/60'
+                      }`}
+                  >
+                    <span className={`text-[9px] font-black w-3.5 text-center ${
+                      idx === 0 ? 'text-amber-400'
+                        : idx === 1 ? 'text-slate-400'
+                        : idx === 2 ? 'text-orange-500'
+                        : 'text-white/30'
+                    }`}>{idx + 1}</span>
+                    <div
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
+                      style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}
+                    >
+                      {player.avatar?.initial || player.name[0]}
+                    </div>
+                    <span className="max-w-[60px] truncate font-medium">{isMe ? 'You' : player.name}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
 
         <div className="glass p-4 mb-4 rounded-2xl">
           <p className="text-xs uppercase text-white/40 tracking-wider mb-3 font-semibold">🃏 Your Secret Card</p>
@@ -289,37 +348,54 @@ export default function DiscussionPage() {
           </form>
         </motion.div>
 
-        <div className="glass p-4 rounded-2xl">
-          <h2 className="font-bold text-white text-sm mb-3 flex items-center justify-between">
-            <span>Players ({room.players.length})</span>
-            <span className="text-xs text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20">🎙️ Live Voice/Text</span>
+        {/* Players list (compact, no duplication) */}
+        <div className="glass p-3 rounded-2xl">
+          <h2 className="font-bold text-white text-xs mb-2 flex items-center justify-between">
+            <span className="text-white/50 uppercase tracking-wider">Players ({room.players.length})</span>
+            <span className="text-[10px] text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20">🎤 Live</span>
           </h2>
-
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {room.players.map((player) => {
-              const playerMicOn = player.id === myId ? isMicOn : peerMutedMap[player.id] === false;
+              const isMe = player.id === myId;
+              const playerMicOn = isMe ? isMicOn : peerMutedMap[player.id] === false;
+              const turnPos = turnOrder.indexOf(player.id);
               return (
-                <div key={player.id} className="flex items-center gap-2.5 p-2.5 rounded-xl border border-white/5 bg-white/3">
+                <div
+                  key={player.id}
+                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border
+                    ${ isMe ? 'border-primary-400/40 bg-primary-500/10' : 'border-white/5 bg-white/3'}`}
+                >
+                  {/* Turn number */}
+                  {turnPos >= 0 && (
+                    <span className={`text-[10px] font-black w-4 text-center flex-shrink-0
+                      ${ turnPos === 0 ? 'text-amber-400'
+                        : turnPos === 1 ? 'text-slate-400'
+                        : turnPos === 2 ? 'text-orange-500'
+                        : 'text-white/25'
+                      }`}>{turnPos + 1}</span>
+                  )}
+                  {/* Avatar */}
                   <div
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0"
                     style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}
                   >
                     {player.avatar?.initial || player.name[0]}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-semibold text-white text-sm truncate max-w-[120px]">{player.name}</span>
-                      {player.id === myId && (
-                        <span className="badge bg-primary-500/20 text-primary-400">You</span>
-                      )}
-                      {player.isHost && (
-                        <span className="badge bg-amber-500/20 text-amber-400">👑</span>
-                      )}
-                    </div>
-                    <div className="text-xs text-white/30">{player.score || 0} pts</div>
+                  {/* Name */}
+                  <div className="flex-1 min-w-0 flex items-center gap-1">
+                    <span className={`text-xs font-semibold truncate max-w-[100px] ${isMe ? 'text-primary-200' : 'text-white'}`}>
+                      {player.name}
+                    </span>
+                    {isMe && <span className="text-[9px] text-primary-400 font-bold">You</span>}
+                    {player.isHost && <span className="text-[10px]">👑</span>}
                   </div>
-                  <div className="flex-shrink-0">
-                    {playerMicOn ? <span className="text-xs text-green-400 bg-green-500/20 px-2 py-0.5 rounded-full">🗣️</span> : <span className="text-xs text-white/25">🔇</span>}
+                  {/* Score + mic */}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <span className="text-[10px] text-white/30">{player.score || 0}pt</span>
+                    {playerMicOn
+                      ? <span className="text-[10px] text-green-400">🗣️</span>
+                      : <span className="text-[10px] text-white/20">🔇</span>
+                    }
                   </div>
                 </div>
               );
@@ -329,4 +405,4 @@ export default function DiscussionPage() {
       </div>
     </motion.div>
   );
-}
+}
