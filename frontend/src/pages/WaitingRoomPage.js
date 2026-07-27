@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '../context/GameContext';
+import { REGIONAL_THEMES } from '../data/themes';
 import sound from '../utils/sound';
 
 const CATEGORIES = [
@@ -31,29 +32,13 @@ const LANGUAGES = [
 
 const QUICK_EMOJIS = ['😀', '😂', '🔥', '👍', '😎', '🎉', '😱', '💩'];
 
-function ChatMessageBubble({ message, me }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`flex ${me ? 'justify-end' : 'justify-start'}`}
-    >
-      <div className={`max-w-[85%] rounded-2xl px-3 py-2 shadow-sm ${me ? 'bg-primary-600/80 text-white' : 'bg-white/10 text-white/90 border border-white/10'}`}>
-        {!me && <p className="text-[10px] font-semibold text-primary-300 mb-1">{message.name}</p>}
-        <p className="text-xs leading-5 break-words">{message.text}</p>
-        <p className={`text-[10px] mt-1 ${me ? 'text-white/70' : 'text-white/35'}`}>{message.time}</p>
-      </div>
-    </motion.div>
-  );
-}
-
 export default function WaitingRoomPage() {
-  const {
-    room, myId, isHost, updateConfig, startGame, error,
-    isMicOn, peerMutedMap, lobbyMessages, typingUsers,
-    sendLobbyMessage, setTypingStatus
+  const { 
+    room, myId, isHost, updateConfig, startGame, error, 
+    isMicOn, peerMutedMap, lobbyMessages, typingUsers, 
+    sendLobbyMessage, setTypingStatus, kickPlayer 
   } = useGame();
-
+  
   const [copied, setCopied] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
   const [chatInput, setChatInput] = useState('');
@@ -61,7 +46,7 @@ export default function WaitingRoomPage() {
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [lobbyMessages, typingUsers]);
+  }, [lobbyMessages]);
 
   if (!room) return null;
 
@@ -79,52 +64,60 @@ export default function WaitingRoomPage() {
   }
 
   function handleInputChange(e) {
-    const val = e.target.value.slice(0, 240);
+    const val = e.target.value;
     setChatInput(val);
-    setTypingStatus(val.trim().length > 0);
+    setTypingStatus(val.length > 0);
   }
 
   function handleSendChat(e) {
     e.preventDefault();
-    const trimmed = chatInput.trim();
-    if (!trimmed) return;
-    sendLobbyMessage(trimmed);
+    if (!chatInput.trim()) return;
+    sendLobbyMessage(chatInput);
     setChatInput('');
     setTypingStatus(false);
     sound.click();
   }
 
   function addEmoji(emoji) {
-    setChatInput(prev => `${prev}${emoji}`.slice(0, 240));
+    setChatInput(prev => prev + emoji);
     setTypingStatus(true);
     sound.click();
   }
 
   const cfg = room.config;
-  const typingNames = Object.values(typingUsers || {}).filter(Boolean);
+  const currentThemeKey = cfg.theme || 'gujarat';
+  const currentTheme = REGIONAL_THEMES[currentThemeKey] || REGIONAL_THEMES.gujarat;
+  const typingNames = Object.values(typingUsers || {});
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="min-h-screen"
+      className={`min-h-screen bg-gradient-to-b ${currentTheme.bgStyle} transition-colors duration-500`}
       style={{ paddingTop: '64px', paddingBottom: '32px' }}
     >
       <div className="max-w-2xl mx-auto px-3 sm:px-4">
+
+        {/* Header Title */}
         <div className="text-center mb-4">
           <h1 className="text-xl sm:text-2xl font-black text-gradient">Game Lobby</h1>
-          <p className="text-white/40 text-xs">Waiting for players & organizing table</p>
+          <p className="text-white/50 text-xs mt-0.5">
+            📍 Venue: <span className="text-accent-400 font-bold">{currentTheme.name}</span> ({currentTheme.landmark})
+          </p>
         </div>
 
+        {/* Room Code */}
         <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="glass-strong p-4 mb-4 text-center glow-purple rounded-2xl"
+          className={`glass-strong p-4 mb-4 text-center rounded-2xl border ${currentTheme.tableBorder}`}
         >
           <p className="text-white/50 text-xs mb-1">Share this code with friends</p>
           <div className="flex items-center justify-center gap-3">
-            <span className="text-3xl sm:text-4xl font-black tracking-[0.25em] text-white">{room.code}</span>
+            <span className="text-3xl sm:text-4xl font-black tracking-[0.25em] text-white">
+              {room.code}
+            </span>
             <button
               onClick={copyCode}
               className="w-9 h-9 rounded-xl glass flex items-center justify-center text-lg border border-white/25 active:scale-95 transition-all cursor-pointer"
@@ -136,6 +129,7 @@ export default function WaitingRoomPage() {
           {copied && <p className="text-accent-400 text-xs mt-1 animate-pulse">Copied to clipboard!</p>}
         </motion.div>
 
+        {/* Players List */}
         <motion.div
           initial={{ y: 10, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -162,7 +156,10 @@ export default function WaitingRoomPage() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 16 }}
                   transition={{ delay: i * 0.04 }}
-                  className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all ${player.id === myId ? 'border-primary-500/40 bg-primary-500/10' : 'border-white/5 bg-white/3'}`}
+                  className={`
+                    flex items-center gap-2.5 p-2.5 rounded-xl border transition-all
+                    ${player.id === myId ? 'border-primary-500/40 bg-primary-500/10' : 'border-white/5 bg-white/3'}
+                  `}
                 >
                   <div
                     className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 shadow-md"
@@ -173,7 +170,9 @@ export default function WaitingRoomPage() {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-semibold text-white text-sm truncate max-w-[140px]">{player.name}</span>
+                      <span className="font-semibold text-white text-sm truncate max-w-[140px]">
+                        {player.name}
+                      </span>
                       {player.id === myId && (
                         <span className="badge bg-primary-500/20 text-primary-400 text-[10px] px-1.5 py-0.5 rounded">You</span>
                       )}
@@ -183,9 +182,22 @@ export default function WaitingRoomPage() {
                     </div>
                   </div>
 
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 ${(player.id === myId ? isMicOn : peerMutedMap[player.id] === false) ? 'bg-green-500/20 text-green-400' : 'bg-white/5 text-white/30'}`}>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 ${
+                    (player.id === myId ? isMicOn : peerMutedMap[player.id] === false)
+                      ? 'bg-green-500/20 text-green-400'
+                      : 'bg-white/5 text-white/30'
+                  }`}>
                     {(player.id === myId ? isMicOn : peerMutedMap[player.id] === false) ? '🎤 Speaking' : '🔇 Muted'}
                   </span>
+
+                  {isHost && player.id !== myId && (
+                    <button
+                      onClick={() => kickPlayer(player.id)}
+                      className="text-xs text-rose-400 hover:text-rose-300 ml-2 cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -198,39 +210,37 @@ export default function WaitingRoomPage() {
           )}
         </motion.div>
 
+        {/* --- Lobby Chat & Emojis Section --- */}
         <motion.div
           initial={{ y: 10, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.15 }}
-          className="glass p-4 mb-4 rounded-2xl flex flex-col min-h-[18rem]"
+          className="glass p-4 mb-4 rounded-2xl flex flex-col h-64"
         >
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-bold text-white text-xs uppercase tracking-wider text-white/60">💬 Lobby Chat & Emojis</h3>
-            <span className="text-[10px] text-white/35">Live room chat</span>
-          </div>
+          <h3 className="font-bold text-white text-xs uppercase tracking-wider mb-2 text-white/60">
+            💬 Lobby Chat & Emojis
+          </h3>
 
-          <div className="flex-1 overflow-y-auto space-y-2 pr-1 mb-2 bg-black/20 p-3 rounded-xl border border-white/5 min-h-[9rem]">
+          <div className="flex-1 overflow-y-auto space-y-2 pr-1 mb-2 bg-black/20 p-3 rounded-xl border border-white/5">
             {lobbyMessages.length === 0 ? (
               <p className="text-white/30 text-xs text-center py-8 italic">No messages yet. Say hello or send an emoji! 👋</p>
             ) : (
-              <AnimatePresence initial={false}>
-                {lobbyMessages.map((msg) => (
-                  <ChatMessageBubble key={msg.id || `${msg.name}-${msg.time}-${msg.text}`} message={msg} me={msg.playerId === myId} />
-                ))}
-              </AnimatePresence>
+              lobbyMessages.map((msg, index) => (
+                <div key={index} className="text-xs">
+                  <span className="font-bold text-primary-300 mr-1.5">{msg.name}:</span>
+                  <span className="text-white/90 break-words">{msg.text}</span>
+                  <span className="text-[9px] text-white/30 ml-2 float-right">{msg.time}</span>
+                </div>
+              ))
             )}
             <div ref={chatBottomRef} />
           </div>
 
           {typingNames.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-[11px] text-amber-300/80 italic mb-2 px-1 flex items-center gap-1.5"
-            >
+            <div className="text-[11px] text-amber-300/80 italic mb-1 px-1 flex items-center gap-1.5 animate-pulse">
               <span>✍️</span>
               <span>{typingNames.join(', ')} {typingNames.length === 1 ? 'is' : 'are'} typing...</span>
-            </motion.div>
+            </div>
           )}
 
           <div className="flex gap-1 mb-2 overflow-x-auto py-1 no-scrollbar">
@@ -240,7 +250,6 @@ export default function WaitingRoomPage() {
                 type="button"
                 onClick={() => addEmoji(emoji)}
                 className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/15 flex items-center justify-center text-sm transition-all active:scale-95 cursor-pointer flex-shrink-0"
-                style={{ touchAction: 'manipulation' }}
               >
                 {emoji}
               </button>
@@ -259,13 +268,13 @@ export default function WaitingRoomPage() {
             <button
               type="submit"
               className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95 flex-shrink-0"
-              style={{ touchAction: 'manipulation' }}
             >
               Send 🚀
             </button>
           </form>
         </motion.div>
 
+        {/* Config Panel with Regional Theme Selector */}
         <motion.div
           initial={{ y: 10, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -278,7 +287,7 @@ export default function WaitingRoomPage() {
             style={{ touchAction: 'manipulation' }}
           >
             <h2 className="font-bold text-white text-sm">
-              ⚙️ Game Settings
+              ⚙️ Game Settings & Indian Venues
               {!isHost && <span className="text-white/30 font-normal text-xs ml-2">(Host only)</span>}
             </h2>
             <span className="text-white/40 text-xs">{showConfig ? '▲ Hide' : '▼ Show'}</span>
@@ -293,6 +302,38 @@ export default function WaitingRoomPage() {
                 className="overflow-hidden"
               >
                 <div className="space-y-4 mt-4 pt-4 border-t border-white/10">
+                  
+                  {/* --- Regional Theme / State Selector --- */}
+                  <div>
+                    <label className="block text-xs text-white/60 mb-2 font-medium">🇮🇳 Choose Indian Venue & Vibe</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.entries(REGIONAL_THEMES).map(([key, theme]) => (
+                        <button
+                          key={key}
+                          disabled={!isHost}
+                          onClick={() => handleConfigChange('theme', key)}
+                          style={{ touchAction: 'manipulation' }}
+                          className={`
+                            flex items-center gap-2 p-2.5 rounded-xl border text-xs font-medium text-left
+                            transition-all duration-150 active:scale-95
+                            ${currentThemeKey === key
+                              ? 'bg-primary-600/30 border-primary-500 text-white shadow-lg'
+                              : 'border-white/10 text-white/60 hover:border-white/20 hover:text-white'
+                            }
+                            ${!isHost ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                          `}
+                        >
+                          <span className="text-lg">{theme.cardSkin.icon}</span>
+                          <div className="min-w-0">
+                            <div className="font-bold truncate text-white">{theme.name}</div>
+                            <div className="text-[10px] text-white/40 truncate">{theme.festival}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Category */}
                   <div>
                     <label className="block text-xs text-white/60 mb-2 font-medium">Category</label>
                     <div className="grid grid-cols-2 gap-1.5">
@@ -302,7 +343,15 @@ export default function WaitingRoomPage() {
                           disabled={!isHost}
                           onClick={() => handleConfigChange('category', cat.id)}
                           style={{ touchAction: 'manipulation' }}
-                          className={`flex items-center gap-1.5 p-2 rounded-xl border text-xs font-medium text-left transition-all duration-150 active:scale-95 ${cfg.category === cat.id ? 'bg-primary-600/30 border-primary-500/60 text-white' : 'border-white/10 text-white/50 hover:border-white/20 hover:text-white/80'} ${!isHost ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                          className={`
+                            flex items-center gap-1.5 p-2 rounded-xl border text-xs font-medium text-left
+                            transition-all duration-150 active:scale-95
+                            ${cfg.category === cat.id
+                              ? 'bg-primary-600/30 border-primary-500/60 text-white'
+                              : 'border-white/10 text-white/50 hover:border-white/20 hover:text-white/80'
+                            }
+                            ${!isHost ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                          `}
                         >
                           <span>{cat.emoji}</span>
                           <span className="truncate">{cat.name}</span>
@@ -311,6 +360,7 @@ export default function WaitingRoomPage() {
                     </div>
                   </div>
 
+                  {/* Difficulty */}
                   <div>
                     <label className="block text-xs text-white/60 mb-2 font-medium">Difficulty</label>
                     <div className="grid grid-cols-4 gap-1.5">
@@ -320,7 +370,15 @@ export default function WaitingRoomPage() {
                           disabled={!isHost}
                           onClick={() => handleConfigChange('difficulty', d.id)}
                           style={{ touchAction: 'manipulation' }}
-                          className={`flex flex-col items-center justify-center gap-0.5 p-2 rounded-xl border text-[10px] font-semibold transition-all duration-150 active:scale-95 ${(cfg.difficulty || 'all') === d.id ? 'bg-accent-600/30 border-accent-500/60 text-white' : 'border-white/10 text-white/50 hover:border-white/20 hover:text-white/80'} ${!isHost ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                          className={`
+                            flex flex-col items-center justify-center gap-0.5 p-2 rounded-xl border text-[10px] font-semibold
+                            transition-all duration-150 active:scale-95
+                            ${(cfg.difficulty || 'all') === d.id
+                              ? 'bg-accent-600/30 border-accent-500/60 text-white'
+                              : 'border-white/10 text-white/50 hover:border-white/20 hover:text-white/80'
+                            }
+                            ${!isHost ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                          `}
                         >
                           <span className="text-base">{d.emoji}</span>
                           <span>{d.name}</span>
@@ -329,6 +387,7 @@ export default function WaitingRoomPage() {
                     </div>
                   </div>
 
+                  {/* Language */}
                   <div>
                     <label className="block text-xs text-white/60 mb-2 font-medium">Language</label>
                     <div className="grid grid-cols-3 gap-1.5">
@@ -338,7 +397,15 @@ export default function WaitingRoomPage() {
                           disabled={!isHost}
                           onClick={() => handleConfigChange('language', lang.id)}
                           style={{ touchAction: 'manipulation' }}
-                          className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border text-xs font-semibold transition-all duration-150 active:scale-95 ${(cfg.language || 'en') === lang.id ? 'bg-primary-600/30 border-primary-500/60 text-white' : 'border-white/10 text-white/50 hover:border-white/20 hover:text-white/80'} ${!isHost ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                          className={`
+                            flex items-center justify-center gap-1.5 p-2 rounded-xl border text-xs font-semibold
+                            transition-all duration-150 active:scale-95
+                            ${(cfg.language || 'en') === lang.id
+                              ? 'bg-primary-600/30 border-primary-500/60 text-white'
+                              : 'border-white/10 text-white/50 hover:border-white/20 hover:text-white/80'
+                            }
+                            ${!isHost ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                          `}
                         >
                           <span>{lang.flag}</span>
                           <span className="truncate">{lang.name}</span>
@@ -388,6 +455,7 @@ export default function WaitingRoomPage() {
           </AnimatePresence>
         </motion.div>
 
+        {/* Error message */}
         <AnimatePresence>
           {error && (
             <motion.div
@@ -401,6 +469,7 @@ export default function WaitingRoomPage() {
           )}
         </AnimatePresence>
 
+        {/* Start Game Button */}
         {isHost ? (
           <motion.div
             initial={{ y: 20, opacity: 0 }}
@@ -414,9 +483,11 @@ export default function WaitingRoomPage() {
               className="btn-primary w-full py-4 text-base flex items-center justify-center gap-2 cursor-pointer shadow-xl"
               style={{ touchAction: 'manipulation' }}
             >
-              🚀 Start Game
+              🚀 Start Game ({currentTheme.name} Vibe)
               {room.players.length < 3 && (
-                <span className="text-sm text-primary-300 font-normal">(Need {3 - room.players.length} more)</span>
+                <span className="text-sm text-primary-300 font-normal">
+                  (Need {3 - room.players.length} more)
+                </span>
               )}
             </button>
           </motion.div>
