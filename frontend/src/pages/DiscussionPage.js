@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '../context/GameContext';
+import { REGIONAL_THEMES } from '../data/themes';
 import wordsData from '../data/words.json';
 import sound from '../utils/sound';
 
@@ -63,13 +64,30 @@ export default function DiscussionPage() {
   const [showDetails, setShowDetails] = useState(false);
   const [isCardRevealed, setIsCardRevealed] = useState(false);
   const [chatInput, setChatInput] = useState('');
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const chatBottomRef = useRef(null);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [lobbyMessages, typingUsers]);
 
   if (!room) return null;
+
+  const cfg = room.config || {};
+  const currentThemeKey = cfg.theme || 'gujarat';
+  const currentTheme = REGIONAL_THEMES[currentThemeKey] || REGIONAL_THEMES.gujarat;
+  
+  const bgImage = isMobile 
+    ? currentTheme.background?.mobile 
+    : currentTheme.background?.desktop;
+  
+  const cardBackImage = currentTheme.cardSkin?.backImage;
 
   const wordInfo = resolveWordInfo(myWord, room.config);
   const remaining = timer?.remaining ?? 0;
@@ -109,24 +127,27 @@ export default function DiscussionPage() {
   }
 
   const typingNames = Object.values(typingUsers || {}).filter(Boolean);
-
-  // Build a fast player lookup map
   const playerMap = Object.fromEntries((room?.players || []).map(p => [p.id, p]));
-
-  // Find my position in the speaking order (1-indexed)
   const myTurnIndex = turnOrder.indexOf(myId);
   const myTurnPosition = myTurnIndex >= 0 ? myTurnIndex + 1 : null;
-  const ordinals = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th'];
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="min-h-screen"
-      style={{ paddingTop: '64px', paddingBottom: '24px' }}
+      className="min-h-screen relative overflow-hidden bg-slate-950"
+      style={{
+        backgroundImage: bgImage ? `url(${bgImage})` : 'none',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        paddingTop: '64px',
+        paddingBottom: '24px',
+      }}
     >
-      <div className="max-w-2xl mx-auto px-3 sm:px-4">
+      <div className="absolute inset-0 bg-slate-950/65 backdrop-blur-[0.5px] pointer-events-none" />
+
+      <div className="max-w-2xl mx-auto px-3 sm:px-4 relative z-10">
         {drawMessage && (
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -139,7 +160,7 @@ export default function DiscussionPage() {
 
         <div className="flex items-center justify-between mb-4 gap-3">
           <div className="flex-1 min-w-0">
-            <div className="inline-flex items-center gap-1.5 bg-accent-600/20 border border-accent-500/30 rounded-full px-3 py-1 text-accent-300 text-xs">
+            <div className="inline-flex items-center gap-1.5 bg-accent-600/20 border border-accent-500/30 rounded-full px-3 py-1 text-accent-300 text-xs shadow-md">
               <span className="live-dot" />
               <span className="truncate">Round {room.currentRound}/{room.totalRounds} — Discussion</span>
             </div>
@@ -148,7 +169,7 @@ export default function DiscussionPage() {
 
           <div className="relative w-16 h-16 flex-shrink-0">
             <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" />
+              <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8" />
               <motion.circle
                 cx="50" cy="50" r="44" fill="none"
                 stroke={isUrgent ? '#f43f5e' : '#06b6d4'}
@@ -166,19 +187,13 @@ export default function DiscussionPage() {
           </div>
         </div>
 
-        {/* Compact Speaking Order Strip */}
+        {/* Speaking Order Strip */}
         {turnOrder.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-4"
-          >
-            <p className="text-[10px] text-white/35 uppercase tracking-wider mb-1.5 font-semibold flex items-center gap-1">
+          <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
+            <p className="text-[10px] text-white/50 uppercase tracking-wider mb-1.5 font-bold flex items-center gap-1">
               <span>🎤</span> Speaking Order
               {myTurnPosition !== null && (
-                <span className={`ml-auto font-bold ${
-                  myTurnPosition === 1 ? 'text-amber-300' : 'text-primary-300'
-                }`}>
+                <span className={`ml-auto font-bold ${myTurnPosition === 1 ? 'text-amber-300' : 'text-primary-300'}`}>
                   You #{myTurnPosition}
                 </span>
               )}
@@ -192,22 +207,18 @@ export default function DiscussionPage() {
                   <div
                     key={playerId}
                     className={`flex items-center gap-1.5 px-2 py-1 rounded-lg flex-shrink-0 border text-[11px]
-                      ${ isMe
-                        ? 'bg-primary-500/20 border-primary-400/50 text-primary-200'
-                        : 'bg-white/5 border-white/8 text-white/60'
-                      }`}
+                      ${isMe ? 'bg-primary-500/25 border-primary-400/60 text-primary-200 font-bold' : 'bg-black/50 border-white/10 text-white/70'}`}
                   >
-                    <span className={`text-[9px] font-black w-3.5 text-center ${
-                      idx === 0 ? 'text-amber-400'
-                        : idx === 1 ? 'text-slate-400'
-                        : idx === 2 ? 'text-orange-500'
-                        : 'text-white/30'
-                    }`}>{idx + 1}</span>
+                    <span className={`text-[9px] font-black w-3.5 text-center ${idx === 0 ? 'text-amber-400' : 'text-white/40'}`}>{idx + 1}</span>
                     <div
-                      className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0 overflow-hidden"
                       style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}
                     >
-                      {player.avatar?.initial || player.name[0]}
+                      {player.avatar?.image ? (
+                        <img src={player.avatar.image} alt="Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        player.avatar?.initial || player.name[0]
+                      )}
                     </div>
                     <span className="max-w-[60px] truncate font-medium">{isMe ? 'You' : player.name}</span>
                   </div>
@@ -217,58 +228,65 @@ export default function DiscussionPage() {
           </motion.div>
         )}
 
-        <div className="glass p-4 mb-4 rounded-2xl">
-          <p className="text-xs uppercase text-white/40 tracking-wider mb-3 font-semibold">🃏 Your Secret Card</p>
+        {/* Vertical / Portrait Secret Card Section */}
+        <div className="glass p-4 mb-4 rounded-2xl shadow-xl flex flex-col items-center">
+          <p className="text-xs uppercase text-white/80 tracking-wider mb-2 font-extrabold w-full text-left">🃏 Your Secret Card</p>
 
           {isCardDisabled ? (
-            <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-xl text-red-300 text-sm font-semibold text-center">
+            <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-xl text-red-300 text-sm font-semibold text-center w-full">
               🔒 Card locked during voting
             </div>
           ) : (
-            <>
+            <div className="w-full flex flex-col items-center">
               <motion.div
                 onClick={() => { sound.cardFlip(); setIsCardRevealed(v => !v); }}
-                className={`p-4 rounded-xl cursor-pointer border transition-all duration-300 text-center ${isCardRevealed ? 'bg-primary-600/20 border-primary-500' : 'bg-white/5 border-white/10 hover:bg-white/8'}`}
-                style={{ touchAction: 'manipulation' }}
+                className={`w-full max-w-[245px] min-h-[220px] p-5 rounded-3xl cursor-pointer border-2 transition-all duration-300 flex flex-col items-center justify-center text-center ${isCardRevealed ? 'border-amber-400 bg-slate-900/95' : 'border-amber-400/70 shadow-2xl'}`}
+                style={{
+                  touchAction: 'manipulation',
+                  backgroundImage: !isCardRevealed && cardBackImage ? `url(${cardBackImage})` : 'linear-gradient(to bottom right, #1e1b4b, #0f172a)',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center'
+                }}
                 whileTap={{ scale: 0.97 }}
               >
-                <p className="text-xs font-bold text-primary-300 mb-2">
-                  {isCardRevealed ? '👁 Tap to Hide' : '🎴 Tap to Reveal Card'}
-                </p>
                 <AnimatePresence mode="wait">
                   {isCardRevealed && wordInfo ? (
-                    <motion.div key="revealed" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                      <div className="text-2xl sm:text-3xl font-black text-white">{wordInfo.word}</div>
-                      {myWord?.isImposter && (
-                        <span className="text-xs text-rose-400 mt-1 block">😈 Imposter Card</span>
+                    <motion.div key="revealed" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="py-4 bg-slate-950/95 rounded-2xl p-4 border border-white/20 w-full flex flex-col items-center justify-center">
+                      <div className="text-2xl font-black text-white break-words">{wordInfo.word}</div>
+                      {myWord?.isImposter ? (
+                        <span className="inline-block mt-2 text-xs bg-rose-600 text-white px-3 py-0.5 rounded-full font-bold shadow">😈 Imposter Card</span>
+                      ) : (
+                        <span className="inline-block mt-2 text-xs bg-emerald-600 text-white px-3 py-0.5 rounded-full font-bold shadow">🧑‍🤝‍🧑 Crew Member</span>
                       )}
                     </motion.div>
                   ) : (
-                    <motion.span key="hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-xs text-white/40">Face down on table</motion.span>
+                    <motion.div key="hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="py-8 flex flex-col items-center justify-center">
+                      <div className="text-4xl mb-1">🎴</div>
+                      <p className="text-white font-bold text-xs">Tap to Reveal Word</p>
+                    </motion.div>
                   )}
                 </AnimatePresence>
               </motion.div>
 
+              <p className="text-center text-[11px] text-amber-300 uppercase tracking-wider font-extrabold mt-2 cursor-pointer" onClick={() => { sound.cardFlip(); setIsCardRevealed(v => !v); }}>
+                {isCardRevealed ? '🔓 Tap Card to Hide Word' : '👇 Tap Vertical Card Above to Reveal'}
+              </p>
+
               {wordInfo && (
-                <div className="mt-3">
+                <div className="mt-2 text-center w-full">
                   <button
                     onClick={() => { sound.cardFlip(); setShowDetails(v => !v); }}
-                    className="text-xs text-primary-300 hover:text-primary-200 font-semibold w-full text-center py-1 cursor-pointer"
+                    className="text-xs text-amber-300 hover:text-amber-200 font-bold py-1 cursor-pointer"
                     style={{ touchAction: 'manipulation' }}
                   >
                     {showDetails ? 'Hide Meaning ▲' : 'Show Meaning & Hints ▼'}
                   </button>
                   <AnimatePresence>
                     {showDetails && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="mt-2 pt-2 border-t border-white/10">
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                        <div className="mt-2 pt-2 border-t border-white/10 text-center">
                           {wordInfo.meaningText && (
-                            <p className="text-xs text-white/70 italic">"{wordInfo.meaningText}"</p>
+                            <p className="text-xs text-white/80 italic">"{wordInfo.meaningText}"</p>
                           )}
                         </div>
                       </motion.div>
@@ -276,24 +294,20 @@ export default function DiscussionPage() {
                   </AnimatePresence>
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
 
-        <motion.div
-          initial={{ y: 10, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          className="glass p-4 mb-4 rounded-2xl flex flex-col min-h-[17rem]"
-        >
+        {/* Chat Section */}
+        <motion.div initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }} className="glass p-4 mb-4 rounded-2xl flex flex-col min-h-[17rem] shadow-xl">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="font-bold text-white text-xs uppercase tracking-wider text-white/60">💬 Discussion Chat</h3>
-            <span className="text-[10px] text-white/35">Room-wide discussion</span>
+            <h3 className="font-bold text-white text-xs uppercase tracking-wider text-white/80">💬 Discussion Chat</h3>
+            <span className="text-[10px] text-white/50">Room-wide discussion</span>
           </div>
 
-          <div className="flex-1 overflow-y-auto space-y-2 pr-1 mb-2 bg-black/20 p-3 rounded-xl border border-white/5 min-h-[8rem]">
+          <div className="flex-1 overflow-y-auto space-y-2 pr-1 mb-2 bg-black/40 p-3 rounded-xl border border-white/10 min-h-[8rem]">
             {lobbyMessages.length === 0 ? (
-              <p className="text-white/30 text-xs text-center py-6 italic">Discuss with others here...</p>
+              <p className="text-white/50 text-xs text-center py-6 italic">Discuss with others here...</p>
             ) : (
               <AnimatePresence initial={false}>
                 {lobbyMessages.map((msg) => (
@@ -305,11 +319,7 @@ export default function DiscussionPage() {
           </div>
 
           {typingNames.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-[11px] text-amber-300/80 italic mb-2 px-1 flex items-center gap-1.5"
-            >
+            <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="text-[11px] text-amber-300 italic mb-2 px-1 flex items-center gap-1.5">
               <span>✍️</span>
               <span>{typingNames.join(', ')} {typingNames.length === 1 ? 'is' : 'are'} typing...</span>
             </motion.div>
@@ -321,7 +331,7 @@ export default function DiscussionPage() {
                 key={idx}
                 type="button"
                 onClick={() => addEmoji(emoji)}
-                className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/15 flex items-center justify-center text-sm transition-all active:scale-95 cursor-pointer flex-shrink-0"
+                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-sm transition-all active:scale-95 cursor-pointer flex-shrink-0"
                 style={{ touchAction: 'manipulation' }}
               >
                 {emoji}
@@ -336,7 +346,7 @@ export default function DiscussionPage() {
               onChange={handleInputChange}
               onBlur={() => setTypingStatus(false)}
               placeholder="Send text or emoji..."
-              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none focus:border-primary-500"
+              className="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-xs text-white placeholder-white/50 focus:outline-none focus:border-amber-400"
             />
             <button
               type="submit"
@@ -348,14 +358,14 @@ export default function DiscussionPage() {
           </form>
         </motion.div>
 
-        {/* Players list (compact, no duplication) */}
-        <div className="glass p-3 rounded-2xl">
+        {/* Players list */}
+        <div className="glass p-3 rounded-2xl shadow-xl">
           <h2 className="font-bold text-white text-xs mb-2 flex items-center justify-between">
-            <span className="text-white/50 uppercase tracking-wider">Players ({room.players.length})</span>
-            <span className="text-[10px] text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20">🎤 Live</span>
+            <span className="text-white/80 uppercase tracking-wider">Players ({room.players.length})</span>
+            <span className="text-[10px] text-green-400 bg-green-500/25 px-2 py-0.5 rounded-full border border-green-500/40">🎤 Live</span>
           </h2>
           <div className="space-y-1.5">
-            {room.players.map((player) => {
+            {(room.players || []).map((player) => {
               const isMe = player.id === myId;
               const playerMicOn = isMe ? isMicOn : peerMutedMap[player.id] === false;
               const turnPos = turnOrder.indexOf(player.id);
@@ -363,25 +373,23 @@ export default function DiscussionPage() {
                 <div
                   key={player.id}
                   className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border
-                    ${ isMe ? 'border-primary-400/40 bg-primary-500/10' : 'border-white/5 bg-white/3'}`}
+                    ${isMe ? 'border-primary-400/50 bg-primary-500/25' : 'border-white/10 bg-black/40'}`}
                 >
-                  {/* Turn number */}
                   {turnPos >= 0 && (
-                    <span className={`text-[10px] font-black w-4 text-center flex-shrink-0
-                      ${ turnPos === 0 ? 'text-amber-400'
-                        : turnPos === 1 ? 'text-slate-400'
-                        : turnPos === 2 ? 'text-orange-500'
-                        : 'text-white/25'
-                      }`}>{turnPos + 1}</span>
+                    <span className={`text-[10px] font-black w-4 text-center flex-shrink-0 ${turnPos === 0 ? 'text-amber-400' : 'text-white/50'}`}>
+                      {turnPos + 1}
+                    </span>
                   )}
-                  {/* Avatar */}
                   <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0"
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0 overflow-hidden"
                     style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}
                   >
-                    {player.avatar?.initial || player.name[0]}
+                    {player.avatar?.image ? (
+                      <img src={player.avatar.image} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      player.avatar?.initial || player.name[0]
+                    )}
                   </div>
-                  {/* Name */}
                   <div className="flex-1 min-w-0 flex items-center gap-1">
                     <span className={`text-xs font-semibold truncate max-w-[100px] ${isMe ? 'text-primary-200' : 'text-white'}`}>
                       {player.name}
@@ -389,13 +397,9 @@ export default function DiscussionPage() {
                     {isMe && <span className="text-[9px] text-primary-400 font-bold">You</span>}
                     {player.isHost && <span className="text-[10px]">👑</span>}
                   </div>
-                  {/* Score + mic */}
                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <span className="text-[10px] text-white/30">{player.score || 0}pt</span>
-                    {playerMicOn
-                      ? <span className="text-[10px] text-green-400">🗣️</span>
-                      : <span className="text-[10px] text-white/20">🔇</span>
-                    }
+                    <span className="text-[10px] text-white/60">{player.score || 0}pt</span>
+                    {playerMicOn ? <span className="text-[10px] text-green-400">🗣️</span> : <span className="text-[10px] text-white/40">🔇</span>}
                   </div>
                 </div>
               );
@@ -405,4 +409,4 @@ export default function DiscussionPage() {
       </div>
     </motion.div>
   );
-}
+}

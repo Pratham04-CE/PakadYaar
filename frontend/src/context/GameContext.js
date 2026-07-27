@@ -22,25 +22,37 @@ export function GameProvider({ children }) {
     const [leaveNotification, setLeaveNotification] = useState(null);
     const [turnOrder, setTurnOrder] = useState([]);
 
-    // Lobby Chat & Typing States
     const [lobbyMessages, setLobbyMessages] = useState([]);
     const [typingUsers, setTypingUsers] = useState({});
 
     const [isMicOn, setIsMicOn] = useState(false);
     const [peerMutedMap, setPeerMutedMap] = useState({});
 
-    // On every connect (initial or after page-refresh reconnect), attempt to rejoin
+    const speakRegionalDealer = useCallback((text, themeKey = 'gujarat') => {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            
+            if (themeKey === 'gujarat') utterance.lang = 'gu-IN';
+            else if (themeKey === 'maharashtra') utterance.lang = 'mr-IN';
+            else if (themeKey === 'kerala') utterance.lang = 'ml-IN';
+            else if (themeKey === 'assam') utterance.lang = 'as-IN';
+            else utterance.lang = 'hi-IN';
+
+            utterance.rate = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
+    }, []);
+
     useEffect(() => {
         function handleConnect() {
             setMyId(socket.id);
-
-            // Attempt rejoin if there is a saved session in sessionStorage
             const savedSession = sessionStorage.getItem('pakadyaar_session');
             if (savedSession) {
                 try {
-                    const { roomCode, playerName } = JSON.parse(savedSession);
+                    const { roomCode, playerName, avatar } = JSON.parse(savedSession);
                     if (roomCode && playerName) {
-                        socket.emit('rejoin-room', { roomCode, playerName });
+                        socket.emit('rejoin-room', { roomCode, playerName, avatar });
                     }
                 } catch (e) {
                     sessionStorage.removeItem('pakadyaar_session');
@@ -48,7 +60,6 @@ export function GameProvider({ children }) {
             }
         }
 
-        // socket.id is available immediately if already connected
         if (socket.connected) {
             setMyId(socket.id);
         }
@@ -62,12 +73,12 @@ export function GameProvider({ children }) {
             setGamePhase('waiting-room');
             setError(null);
             setLobbyMessages([]);
-            // Save session so page refresh can rejoin
             const myPlayer = room.players.find(p => p.id === socket.id);
             if (myPlayer) {
                 sessionStorage.setItem('pakadyaar_session', JSON.stringify({
                     roomCode: room.code,
-                    playerName: myPlayer.name
+                    playerName: myPlayer.name,
+                    avatar: myPlayer.avatar
                 }));
             }
         });
@@ -77,45 +88,14 @@ export function GameProvider({ children }) {
             setGamePhase('waiting-room');
             setError(null);
             setLobbyMessages([]);
-            // Save session so page refresh can rejoin
             const myPlayer = room.players.find(p => p.id === socket.id);
             if (myPlayer) {
                 sessionStorage.setItem('pakadyaar_session', JSON.stringify({
                     roomCode: room.code,
-                    playerName: myPlayer.name
+                    playerName: myPlayer.name,
+                    avatar: myPlayer.avatar
                 }));
             }
-        });
-
-        // Rejoin success — restore full game state after page refresh
-        socket.on('rejoin-success', ({ room, gameState }) => {
-            setRoom(room);
-            setError(null);
-            // Map server gameState to our frontend phase
-            const phaseMap = {
-                lobby: 'waiting-room',
-                'word-reveal': 'word-reveal',
-                discussion: 'discussion',
-                voting: 'voting',
-                results: 'results',
-                'game-over': 'game-over',
-            };
-            setGamePhase(phaseMap[gameState] || 'waiting-room');
-            // Update session with latest room code (host may have changed)
-            const myPlayer = room.players.find(p => p.id === socket.id);
-            if (myPlayer) {
-                sessionStorage.setItem('pakadyaar_session', JSON.stringify({
-                    roomCode: room.code,
-                    playerName: myPlayer.name
-                }));
-            }
-        });
-
-        // Rejoin failed — stale session, clear it and go home
-        socket.on('rejoin-error', () => {
-            sessionStorage.removeItem('pakadyaar_session');
-            setGamePhase('home');
-            setRoom(null);
         });
 
         socket.on('room-updated', ({ room }) => {
@@ -130,9 +110,7 @@ export function GameProvider({ children }) {
         socket.on('start-error', ({ message }) => setError(message));
         socket.on('error', ({ message }) => setError(message));
 
-        // --- FIXED: Player Left Notification with Exact Name Lookup ---
         socket.on('player-left', ({ playerId, playerName }) => {
-            // Agar backend se name nahi aaya toh room players list me se dhoond lo
             let nameToDisplay = playerName;
             if (!nameToDisplay && room && room.players) {
                 const foundPlayer = room.players.find(p => p.id === playerId);
@@ -150,46 +128,6 @@ export function GameProvider({ children }) {
             });
         });
 
-        socket.on('lobby-message-received', (messageData) => {
-            // Format timestamp on the client so it uses the user's local timezone
-            const formatted = {
-                ...messageData,
-                time: messageData.sentAt
-                    ? new Date(messageData.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                    : messageData.time
-            };
-            setLobbyMessages(prev => [...prev, formatted]);
-        });
-
-        socket.on('user-typing-status', ({ playerId, playerName, isTyping }) => {
-            setTypingUsers(prev => {
-                const updated = { ...prev };
-                if (isTyping) {
-                    updated[playerId] = playerName;
-                } else {
-                    delete updated[playerId];
-                }
-                return updated;
-            });
-        });
-
-        socket.on('user-joined-voice', ({ playerId }) => {
-            if (playerId !== socket.id) {
-                const isInitiator = socket.id < playerId;
-                voiceChat.createPeerConnection(playerId, socket, isInitiator);
-            }
-        });
-
-        socket.on('voice-signal', ({ senderId, signal }) => {
-            if (senderId !== socket.id) {
-                voiceChat.handleSignal(senderId, signal, socket);
-            }
-        });
-
-        socket.on('voice-mute-status', ({ playerId, isMuted }) => {
-            setPeerMutedMap(prev => ({ ...prev, [playerId]: isMuted }));
-        });
-
         socket.on('game-started', ({ room }) => {
             setRoom(room);
             setMyWord(null);
@@ -200,7 +138,6 @@ export function GameProvider({ children }) {
             setHasConfirmedWord(false);
             setDrawMessage(null);
             setIsCardDisabled(false);
-            // Set the shuffled speaking order broadcast by the server
             if (room.turnOrder && room.turnOrder.length > 0) {
                 setTurnOrder(room.turnOrder);
             }
@@ -222,15 +159,21 @@ export function GameProvider({ children }) {
             setGamePhase('discussion');
             setDrawMessage(null);
             setIsCardDisabled(false);
-            // Refresh turn order in case it was updated (e.g. after a draw re-discussion)
             if (to && to.length > 0) setTurnOrder(to);
             sound.start();
+            
+            const themeKey = room?.config?.theme || 'gujarat';
+            speakRegionalDealer("Charcha shuru ho gayi hai, savdhan rahein!", themeKey);
         });
 
         socket.on('timer-tick', ({ remaining, phase }) => {
             setTimer(prev => prev ? { ...prev, remaining } : { remaining, phase });
             if (remaining <= 15 && remaining > 0) {
                 sound.tick(remaining);
+                if (remaining === 10) {
+                    const themeKey = room?.config?.theme || 'gujarat';
+                    speakRegionalDealer("Samay samapt hone wala hai!", themeKey);
+                }
             }
         });
 
@@ -240,18 +183,9 @@ export function GameProvider({ children }) {
             setGamePhase('voting');
             setIsCardDisabled(true);
             sound.start();
-        });
-
-        socket.on('vote-cast', ({ voterId, targetId }) => {
-            setVoteData(prev => ({ ...prev, [voterId]: targetId }));
-            sound.vote();
-        });
-
-        socket.on('vote-draw', ({ message }) => {
-            setDrawMessage(message);
-            setGamePhase('discussion');
-            setIsCardDisabled(false);
-            sound.draw();
+            
+            const themeKey = room?.config?.theme || 'gujarat';
+            speakRegionalDealer("Matdan ka samay shuru ho chuka hai!", themeKey);
         });
 
         socket.on('vote-results', (data) => {
@@ -271,99 +205,35 @@ export function GameProvider({ children }) {
             sound.victory();
         });
 
-        socket.on('game-reset', ({ room }) => {
-            setRoom(room);
-            setMyWord(null);
-            setVoteData({});
-            setResults(null);
-            setFinalResults(null);
-            setTimer(null);
-            setConfirmedCount(0);
-            setHasConfirmedWord(false);
-            setDrawMessage(null);
-            setIsCardDisabled(false);
-            setTurnOrder([]);
-            setGamePhase('waiting-room');
-        });
-
         return () => {
             socket.off('room-created');
             socket.off('join-success');
-            socket.off('rejoin-success');
-            socket.off('rejoin-error');
             socket.off('room-updated');
             socket.off('config-updated');
-            socket.off('join-error');
-            socket.off('start-error');
-            socket.off('error');
             socket.off('player-left');
-            socket.off('lobby-message-received');
-            socket.off('user-typing-status');
-            socket.off('user-joined-voice');
-            socket.off('voice-signal');
-            socket.off('voice-mute-status');
             socket.off('game-started');
             socket.off('your-word');
             socket.off('word-confirmed');
             socket.off('discussion-started');
             socket.off('timer-tick');
             socket.off('voting-started');
-            socket.off('vote-cast');
-            socket.off('vote-draw');
             socket.off('vote-results');
             socket.off('game-over');
-            socket.off('game-reset');
         };
-    }, [room]);
+    }, [room, speakRegionalDealer]);
 
-    const sendLobbyMessage = useCallback((text) => {
-        if (!text || !text.trim()) return;
-        socket.emit('send-lobby-message', { text: text.trim() });
-    }, []);
-
-    const setTypingStatus = useCallback((isTyping) => {
-        socket.emit('typing-status', { isTyping });
-    }, []);
-
-    const toggleMic = useCallback(async () => {
-        if (!voiceChat.isInitialized()) {
-            const stream = await voiceChat.startLocalStream();
-            if (!stream) {
-                setError('Microphone permission denied or device unavailable.');
-                return false;
-            }
-        }
-
-        const isMuted = voiceChat.toggleMic();
-        setIsMicOn(!isMuted);
-        socket.emit('voice-mute-status', { isMuted });
-        socket.emit('join-voice');
-
-        if (room && room.players) {
-            room.players.forEach(p => {
-                if (p.id !== socket.id) {
-                    const isInitiator = socket.id < p.id;
-                    voiceChat.createPeerConnection(p.id, socket, isInitiator);
-                }
-            });
-        }
-
-        return !isMuted;
-    }, [room]);
-
-    const createRoom = useCallback((playerName) => {
+    const createRoom = useCallback((playerName, avatar) => {
         setError(null);
-        socket.emit('create-room', { playerName });
+        socket.emit('create-room', { playerName, avatar });
     }, []);
 
-    const joinRoom = useCallback((roomCode, playerName) => {
+    const joinRoom = useCallback((roomCode, playerName, avatar) => {
         setError(null);
-        socket.emit('join-room', { roomCode, playerName });
+        socket.emit('join-room', { roomCode, playerName, avatar });
     }, []);
 
     const leaveRoom = useCallback(() => {
         socket.emit('leave-room');
-        // Clear session so page refresh doesn't try to rejoin after intentional leave
         sessionStorage.removeItem('pakadyaar_session');
         voiceChat.closeAll();
         setIsMicOn(false);
@@ -405,10 +275,9 @@ export function GameProvider({ children }) {
     const nextRound = useCallback(() => {
         socket.emit('next-round');
     }, []);
-
-    const playAgain = useCallback(() => {
-        socket.emit('play-again');
-    }, []);
+const playAgain = useCallback(() => {
+    socket.emit('play-again');
+}, []);
 
     const kickPlayer = useCallback((playerId) => {
         socket.emit('kick-player', { playerId });
@@ -420,48 +289,24 @@ export function GameProvider({ children }) {
     const myPlayer = room?.players?.find(p => p.id === myId);
 
     const value = {
-        socket,
-        room,
-        myId,
-        myWord,
-        gamePhase,
-        timer,
-        voteData,
-        results,
-        finalResults,
-        error,
-        confirmedCount,
-        hasConfirmedWord,
-        drawMessage,
-        isHost,
-        myPlayer,
-        isCardDisabled,
-        leaveNotification,
-        lobbyMessages,
-        typingUsers,
-        sendLobbyMessage,
-        setTypingStatus,
-        isMicOn,
-        peerMutedMap,
-        toggleMic,
-        turnOrder,
-        createRoom,
-        joinRoom,
-        leaveRoom,
-        updateConfig,
-        startGame,
-        confirmWord,
-        startDiscussion,
-        castVote,
-        nextRound,
-        playAgain,
-        kickPlayer,
-        clearError,
+        socket, room, myId, myWord, gamePhase, timer, voteData, results, finalResults,
+        error, confirmedCount, hasConfirmedWord, drawMessage, isHost, myPlayer,
+        isCardDisabled, leaveNotification, lobbyMessages, typingUsers,
+        sendLobbyMessage: (text) => socket.emit('send-lobby-message', { text }),
+        setTypingStatus: (isTyping) => setTypingUsers(isTyping),
+        isMicOn, peerMutedMap, toggleMic: async () => {}, turnOrder,
+        createRoom, joinRoom, leaveRoom, updateConfig, startGame,
+        confirmWord, startDiscussion, castVote, nextRound, playAgain, kickPlayer, clearError
     };
 
     return (
         <GameContext.Provider value={value}>
             {children}
+            {leaveNotification && (
+                <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-rose-600 text-white px-4 py-2 rounded-xl shadow-2xl text-xs font-bold animate-bounce">
+                    ⚠️ {leaveNotification}
+                </div>
+            )}
         </GameContext.Provider>
     );
 }

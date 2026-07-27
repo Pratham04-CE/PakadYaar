@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
+import AvatarPicker from '../components/AvatarPicker';
 
 export default function LobbyPage() {
   const { createRoom, joinRoom, error, clearError, gamePhase } = useGame();
@@ -10,6 +11,7 @@ export default function LobbyPage() {
   const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [avatar, setAvatar] = useState({ color: '#7c3aed', initial: 'P', image: null });
 
   // Redirect to PhaseRouter at "/" once we're in the room
   useEffect(() => {
@@ -23,7 +25,8 @@ export default function LobbyPage() {
     e.preventDefault();
     if (!playerName.trim()) return;
     setLoading(true);
-    createRoom(playerName.trim());
+    // Pass avatar along with name if supported by context/backend
+    createRoom(playerName.trim(), avatar);
     setTimeout(() => setLoading(false), 3000);
   }
 
@@ -31,7 +34,7 @@ export default function LobbyPage() {
     e.preventDefault();
     if (!playerName.trim() || !roomCode.trim()) return;
     setLoading(true);
-    joinRoom(roomCode.trim().toUpperCase(), playerName.trim());
+    joinRoom(roomCode.trim().toUpperCase(), playerName.trim(), avatar);
     setTimeout(() => setLoading(false), 3000);
   }
 
@@ -119,17 +122,23 @@ export default function LobbyPage() {
                   className="input"
                   placeholder="Enter your nickname"
                   value={playerName}
-                  onChange={e => setPlayerName(e.target.value)}
+                  onChange={e => {
+                    setPlayerName(e.target.value);
+                    setAvatar(a => ({ ...a, initial: e.target.value ? e.target.value[0].toUpperCase() : 'P' }));
+                  }}
                   maxLength={20}
                   autoFocus
                 />
               </div>
 
+              {/* Avatar Picker / Gallery Upload Component */}
+              <AvatarPicker selectedAvatar={avatar} onAvatarChange={setAvatar} />
+
               <button
                 type="submit"
                 id="create-room-btn"
                 disabled={!playerName.trim() || loading}
-                className="btn-primary w-full flex items-center justify-center gap-2 py-4 text-base"
+                className="btn-primary w-full flex items-center justify-center gap-2 py-4 text-base mt-2"
                 style={{ touchAction: 'manipulation' }}
               >
                 {loading ? <span className="animate-spin">⏳</span> : <>🏠 Create Room</>}
@@ -155,7 +164,10 @@ export default function LobbyPage() {
                   className="input"
                   placeholder="Enter your nickname"
                   value={playerName}
-                  onChange={e => setPlayerName(e.target.value)}
+                  onChange={e => {
+                    setPlayerName(e.target.value);
+                    setAvatar(a => ({ ...a, initial: e.target.value ? e.target.value[0].toUpperCase() : 'P' }));
+                  }}
                   maxLength={20}
                   autoFocus
                 />
@@ -173,11 +185,14 @@ export default function LobbyPage() {
                 />
               </div>
 
+              {/* Avatar Picker / Gallery Upload Component */}
+              <AvatarPicker selectedAvatar={avatar} onAvatarChange={setAvatar} />
+
               <button
                 type="submit"
                 id="join-room-btn"
                 disabled={!playerName.trim() || !roomCode.trim() || loading}
-                className="btn-accent w-full flex items-center justify-center gap-2 py-4 text-base"
+                className="btn-accent w-full flex items-center justify-center gap-2 py-4 text-base mt-2"
                 style={{ touchAction: 'manipulation' }}
               >
                 {loading ? <span className="animate-spin">⏳</span> : <>🚪 Join Room</>}

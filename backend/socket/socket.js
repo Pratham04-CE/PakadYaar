@@ -25,7 +25,21 @@ function initializeSocket(server) {
             console.log(`Player Disconnected : ${socket.id}`);
         });
     });
+socket.on('play-again', () => {
+    const roomCode = getRoomCodeBySocketId(socket.id);
+    const room = rooms[roomCode];
+    if (!room) return;
 
+    // Check if the requester is the host
+    if (room.host === socket.id) {
+        room.currentRound = 1;
+        room.gamePhase = 'waiting-room';
+        // Reset player scores or keep them as per your design
+        room.players.forEach(p => { p.score = 0; });
+
+        io.to(roomCode).emit('game-reset', { room });
+    }
+});
 }
 
 module.exports = initializeSocket;

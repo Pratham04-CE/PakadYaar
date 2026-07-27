@@ -11,6 +11,7 @@ app.use(express.json());
 
 const server = http.createServer(app);
 
+// Initialize Socket.io and pass server with custom room/player avatar handling support
 initializeSocket(server);
 
 const PORT = process.env.PORT || 5000;
