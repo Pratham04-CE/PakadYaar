@@ -67,6 +67,70 @@ export function GameProvider({ children }) {
         return () => socket.off('connect', handleConnect);
     }, []);
 
+    // Helper: map server gameState string -> UI phase string
+    function serverStateToPhase(gameState) {
+        switch (gameState) {
+            case 'lobby':       return 'waiting-room';
+            case 'word-reveal': return 'word-reveal';
+            case 'discussion':  return 'discussion';
+            case 'voting':      return 'voting';
+            case 'results':     return 'results';
+            case 'game-over':   return 'game-over';
+            default:            return 'waiting-room';
+        }
+    }
+
+    // ── Set up voice chat socket listeners ─────────────────────────────────
+    useEffect(() => {
+        // Relay WebRTC signals to the voiceChat manager
+        socket.on('voice-signal', ({ senderId, signal }) => {
+            voiceChat.handleSignal(senderId, signal, socket);
+        });
+
+        // Another player turned their mic on — initiate a WebRTC connection to them
+        socket.on('user-joined-voice', ({ playerId }) => {
+            voiceChat.createPeerConnection(playerId, socket, true);
+            setPeerMutedMap(prev => ({ ...prev, [playerId]: false }));
+        });
+
+        // Peer mic mute/unmute status broadcast
+        socket.on('voice-mute-status', ({ playerId, isMuted }) => {
+            setPeerMutedMap(prev => ({ ...prev, [playerId]: isMuted }));
+        });
+
+        return () => {
+            socket.off('voice-signal');
+            socket.off('user-joined-voice');
+            socket.off('voice-mute-status');
+        };
+    }, []);
+
+    // ── Set up chat & lobby socket listeners ─────────────────────────────────
+    useEffect(() => {
+        // Incoming chat message — append to lobbyMessages list
+        socket.on('lobby-message-received', (message) => {
+            setLobbyMessages(prev => [...prev, message]);
+        });
+
+        // Typing status from other players
+        socket.on('user-typing-status', ({ playerId, playerName, isTyping }) => {
+            setTypingUsers(prev => {
+                const next = { ...prev };
+                if (isTyping) {
+                    next[playerId] = playerName;
+                } else {
+                    delete next[playerId];
+                }
+                return next;
+            });
+        });
+
+        return () => {
+            socket.off('lobby-message-received');
+            socket.off('user-typing-status');
+        };
+    }, []);
+
     useEffect(() => {
         socket.on('room-created', ({ room }) => {
             setRoom(room);
@@ -98,6 +162,37 @@ export function GameProvider({ children }) {
             }
         });
 
+        // ── REJOIN SUCCESS ───────────────────────────────────────────────────
+        // Fired after a page refresh when the server finds the player in the room.
+        socket.on('rejoin-success', ({ room, gameState }) => {
+            setRoom(room);
+            setError(null);
+            setLobbyMessages([]);
+            const phase = serverStateToPhase(gameState);
+            setGamePhase(phase);
+            if (room.turnOrder && room.turnOrder.length > 0) {
+                setTurnOrder(room.turnOrder);
+            }
+            // Refresh sessionStorage with latest data
+            const myPlayer = room.players.find(p => p.id === socket.id);
+            if (myPlayer) {
+                sessionStorage.setItem('pakadyaar_session', JSON.stringify({
+                    roomCode: room.code,
+                    playerName: myPlayer.name,
+                    avatar: myPlayer.avatar
+                }));
+            }
+        });
+
+        // ── REJOIN ERROR ─────────────────────────────────────────────────────
+        // Room no longer exists — clear stale session and go home.
+        socket.on('rejoin-error', ({ message }) => {
+            sessionStorage.removeItem('pakadyaar_session');
+            setRoom(null);
+            setGamePhase('home');
+            setError(message);
+        });
+
         socket.on('room-updated', ({ room }) => {
             setRoom(room);
         });
@@ -126,6 +221,29 @@ export function GameProvider({ children }) {
                 delete next[playerId];
                 return next;
             });
+        });
+
+        // ── PLAYER DISCONNECTED (refresh / network drop) ─────────────────────
+        // Different from player-left — player may reconnect within grace period.
+        socket.on('player-disconnected', ({ playerName }) => {
+            setLeaveNotification(`${playerName || 'A player'} lost connection… waiting for reconnect.`);
+            setTimeout(() => setLeaveNotification(null), 6000);
+        });
+
+        // ── KICKED FROM ROOM ─────────────────────────────────────────────────
+        socket.on('kicked-from-room', ({ message }) => {
+            sessionStorage.removeItem('pakadyaar_session');
+            voiceChat.closeAll();
+            setIsMicOn(false);
+            setPeerMutedMap({});
+            setRoom(null);
+            setMyWord(null);
+            setResults(null);
+            setFinalResults(null);
+            setTimer(null);
+            setError(message || 'You were removed from the room.');
+            setLobbyMessages([]);
+            setGamePhase('home');
         });
 
         socket.on('game-started', ({ room }) => {
@@ -188,6 +306,18 @@ export function GameProvider({ children }) {
             speakRegionalDealer("Matdan ka samay shuru ho chuka hai!", themeKey);
         });
 
+        // ── VOTE CAST (live vote count updates) ─────────────────────────────
+        socket.on('vote-cast', ({ voterId, targetId }) => {
+            setVoteData(prev => ({ ...prev, [voterId]: targetId }));
+        });
+
+        // ── VOTE DRAW (tie — extra discussion started) ───────────────────────
+        socket.on('vote-draw', ({ message }) => {
+            setDrawMessage(message || "It's a tie! More discussion time added.");
+            setIsCardDisabled(false);
+            setGamePhase('discussion');
+        });
+
         socket.on('vote-results', (data) => {
             setResults(data);
             setRoom(prev => prev ? { ...prev, players: data.scores } : prev);
@@ -205,20 +335,42 @@ export function GameProvider({ children }) {
             sound.victory();
         });
 
+        // ── GAME RESET (play-again resets back to lobby) ─────────────────────
+        socket.on('game-reset', ({ room }) => {
+            setRoom(room);
+            setMyWord(null);
+            setVoteData({});
+            setResults(null);
+            setFinalResults(null);
+            setTimer(null);
+            setConfirmedCount(0);
+            setHasConfirmedWord(false);
+            setDrawMessage(null);
+            setIsCardDisabled(false);
+            setGamePhase('waiting-room');
+        });
+
         return () => {
             socket.off('room-created');
             socket.off('join-success');
+            socket.off('rejoin-success');
+            socket.off('rejoin-error');
             socket.off('room-updated');
             socket.off('config-updated');
             socket.off('player-left');
+            socket.off('player-disconnected');
+            socket.off('kicked-from-room');
             socket.off('game-started');
             socket.off('your-word');
             socket.off('word-confirmed');
             socket.off('discussion-started');
             socket.off('timer-tick');
             socket.off('voting-started');
+            socket.off('vote-cast');
+            socket.off('vote-draw');
             socket.off('vote-results');
             socket.off('game-over');
+            socket.off('game-reset');
         };
     }, [room, speakRegionalDealer]);
 
@@ -288,13 +440,36 @@ const playAgain = useCallback(() => {
     const isHost = room && myId && room.host === myId;
     const myPlayer = room?.players?.find(p => p.id === myId);
 
+    // Real toggleMic — starts mic stream on first use, then mutes/unmutes
+    const toggleMic = useCallback(async () => {
+        if (!voiceChat.isInitialized()) {
+            // First activation: request mic access and notify room
+            const stream = await voiceChat.startLocalStream();
+            if (!stream) return; // Permission denied
+            socket.emit('join-voice');
+        }
+        const nowMuted = voiceChat.toggleMic();
+        const nowOn = !nowMuted;
+        setIsMicOn(nowOn);
+        socket.emit('voice-mute-status', { isMuted: nowMuted });
+    }, []);
+
+    // Sends a chat message to the room
+    const sendLobbyMessage = useCallback((text) => {
+        socket.emit('send-lobby-message', { text });
+    }, []);
+
+    // Broadcasts typing status to other room members
+    const setTypingStatus = useCallback((isTyping) => {
+        socket.emit('typing-status', { isTyping });
+    }, []);
+
     const value = {
         socket, room, myId, myWord, gamePhase, timer, voteData, results, finalResults,
         error, confirmedCount, hasConfirmedWord, drawMessage, isHost, myPlayer,
         isCardDisabled, leaveNotification, lobbyMessages, typingUsers,
-        sendLobbyMessage: (text) => socket.emit('send-lobby-message', { text }),
-        setTypingStatus: (isTyping) => setTypingUsers(isTyping),
-        isMicOn, peerMutedMap, toggleMic: async () => {}, turnOrder,
+        sendLobbyMessage, setTypingStatus,
+        isMicOn, peerMutedMap, toggleMic, turnOrder,
         createRoom, joinRoom, leaveRoom, updateConfig, startGame,
         confirmWord, startDiscussion, castVote, nextRound, playAgain, kickPlayer, clearError
     };

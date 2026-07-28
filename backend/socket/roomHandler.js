@@ -16,7 +16,7 @@ const DEFAULT_CONFIG = {
 
 // Grace-period timers: socketId -> setTimeout handle
 const disconnectTimers = new Map();
-const GRACE_MS = 6000; // 6 seconds
+const GRACE_MS = 15000; // 15 seconds — long enough for a page refresh on slow connections
 
 
 function roomHandler(io, socket) {
