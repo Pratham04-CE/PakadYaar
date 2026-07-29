@@ -25,7 +25,6 @@ export default function LobbyPage() {
     e.preventDefault();
     if (!playerName.trim()) return;
     setLoading(true);
-    // Pass avatar along with name if supported by context/backend
     createRoom(playerName.trim(), avatar);
     setTimeout(() => setLoading(false), 3000);
   }

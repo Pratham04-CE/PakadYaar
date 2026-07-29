@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '../context/GameContext';
 import { REGIONAL_THEMES } from '../data/themes';
@@ -9,6 +9,7 @@ export default function TableDistributorPage() {
   const [isCardFlipped, setIsCardFlipped] = useState(false);
   const [animatingDeal, setAnimatingDeal] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const lastRoundRef = useRef(null);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -30,16 +31,19 @@ export default function TableDistributorPage() {
     }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
- useEffect(() => {
+  useEffect(() => {
     if (!room) return;
-    setAnimatingDeal(true);
-    sound.cardFlip();
-    const cfg = room.config || {};
-    const currentThemeKey = cfg.theme || 'gujarat';
-    const currentTheme = REGIONAL_THEMES[currentThemeKey] || REGIONAL_THEMES.gujarat;
-    if (currentTheme?.dealer?.quote) {
-      speakDealer(currentTheme.dealer.quote, currentThemeKey);
+    if (lastRoundRef.current !== room.currentRound) {
+      lastRoundRef.current = room.currentRound;
+      setAnimatingDeal(true);
+      setIsCardFlipped(false);
+      sound.cardFlip();
+      const cfg = room.config || {};
+      const currentThemeKey = cfg.theme || 'gujarat';
+      const currentTheme = REGIONAL_THEMES[currentThemeKey] || REGIONAL_THEMES.gujarat;
+      if (currentTheme?.dealer?.quote) {
+        speakDealer(currentTheme.dealer.quote, currentThemeKey);
+      }
     }
   }, [room, room?.currentRound, room?.config]);
   if (!room) return null;
@@ -77,7 +81,6 @@ export default function TableDistributorPage() {
     >
       <div className="absolute inset-0 bg-slate-950/55 backdrop-blur-[0.5px] pointer-events-none" />
 
-      {/* Tap to Continue Dealer Deal Animation */}
       <AnimatePresence>
         {animatingDeal && (
           <motion.div
@@ -102,7 +105,6 @@ export default function TableDistributorPage() {
             <h2 className="text-amber-300 font-black text-2xl uppercase tracking-wider">{dealer.name} is dealing your card...</h2>
             <p className="text-white italic text-base mt-2 max-w-md">"{dealer.quote}"</p>
             
-            {/* Vertical Flying Card */}
             <motion.div
               animate={{ y: [0, 15, 0] }}
               transition={{ repeat: Infinity, duration: 1.2 }}
@@ -117,7 +119,6 @@ export default function TableDistributorPage() {
         )}
       </AnimatePresence>
 
-      {/* Header */}
       <div className="text-center px-4 mb-2 z-10">
         <div className="inline-flex items-center gap-2 bg-black/75 border border-white/25 rounded-full px-4 py-1.5 text-white text-xs shadow-xl">
           <span>🇮🇳 {currentTheme.name || 'Game'} Table</span>
@@ -126,7 +127,6 @@ export default function TableDistributorPage() {
         </div>
       </div>
 
-      {/* Players Bar */}
       <div className="px-4 mb-2 z-10">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-w-xl mx-auto">
           {(room.players || []).map((player, i) => (
@@ -152,7 +152,6 @@ export default function TableDistributorPage() {
         </div>
       </div>
 
-      {/* Big Dealer Section */}
       <div className="flex flex-col items-center justify-center px-4 my-2 z-10">
         <div className="w-36 h-36 sm:w-44 sm:h-44 rounded-3xl overflow-hidden border-3 border-amber-400/80 p-1 shadow-2xl flex items-center justify-center bg-black/40">
           {typeof dealer.icon === 'string' && dealer.icon.length > 2 ? (
@@ -167,7 +166,6 @@ export default function TableDistributorPage() {
         </div>
       </div>
 
-      {/* Vertical / Portrait Card Section */}
       <div className="flex-1 flex flex-col items-center justify-center px-4 z-10 mt-1">
         <motion.div
           whileTap={{ scale: 0.97 }}
@@ -208,7 +206,6 @@ export default function TableDistributorPage() {
           {isCardFlipped ? '🔓 Card Revealed' : '👇 Tap Vertical Card Above to Flip'}
         </p>
 
-        {/* Action Buttons */}
         <div className="w-full max-w-sm mt-3 space-y-2">
           {!hasConfirmedWord ? (
             <motion.button

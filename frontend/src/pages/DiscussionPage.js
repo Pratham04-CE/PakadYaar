@@ -58,7 +58,7 @@ export default function DiscussionPage() {
   const {
     room, myWord, timer, myId, drawMessage, isMicOn,
     peerMutedMap, isCardDisabled, lobbyMessages, typingUsers,
-    sendLobbyMessage, setTypingStatus, turnOrder
+    sendLobbyMessage, setTypingStatus, turnOrder, toggleMic
   } = useGame();
 
   const [showDetails, setShowDetails] = useState(false);
@@ -167,22 +167,31 @@ export default function DiscussionPage() {
             <h1 className="text-lg sm:text-xl font-bold text-white mt-1">Discussion Table 🗣️</h1>
           </div>
 
-          <div className="relative w-16 h-16 flex-shrink-0">
-            <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8" />
-              <motion.circle
-                cx="50" cy="50" r="44" fill="none"
-                stroke={isUrgent ? '#f43f5e' : '#06b6d4'}
-                strokeWidth="8" strokeLinecap="round"
-                strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
-                style={{ transition: 'stroke-dashoffset 1s linear, stroke 0.5s ease' }}
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className={`text-sm font-black tabular-nums leading-none ${isUrgent ? 'text-rose-400' : 'text-white'}`}>
-                {formatTime(remaining)}
-              </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { sound.click(); toggleMic(); }}
+              className={`px-3 py-2 rounded-xl text-xs font-bold shadow-lg transition-all cursor-pointer flex items-center gap-1.5 ${isMicOn ? 'bg-green-600 text-white animate-pulse' : 'bg-white/10 text-white/70 border border-white/20'}`}
+            >
+              {isMicOn ? '🎤 ON' : '🔇 OFF'}
+            </button>
+
+            <div className="relative w-16 h-16 flex-shrink-0">
+              <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8" />
+                <motion.circle
+                  cx="50" cy="50" r="44" fill="none"
+                  stroke={isUrgent ? '#f43f5e' : '#06b6d4'}
+                  strokeWidth="8" strokeLinecap="round"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={strokeDashoffset}
+                  style={{ transition: 'stroke-dashoffset 1s linear, stroke 0.5s ease' }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className={`text-sm font-black tabular-nums leading-none ${isUrgent ? 'text-rose-400' : 'text-white'}`}>
+                  {formatTime(remaining)}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -310,8 +319,8 @@ export default function DiscussionPage() {
               <p className="text-white/50 text-xs text-center py-6 italic">Discuss with others here...</p>
             ) : (
               <AnimatePresence initial={false}>
-                {lobbyMessages.map((msg) => (
-                  <ChatMessageBubble key={msg.id || `${msg.name}-${msg.time}-${msg.text}`} message={msg} me={msg.playerId === myId} />
+                {lobbyMessages.map((msg, index) => (
+                  <ChatMessageBubble key={msg.id || index} message={msg} me={msg.playerId === myId} />
                 ))}
               </AnimatePresence>
             )}

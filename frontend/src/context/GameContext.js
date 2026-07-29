@@ -67,7 +67,6 @@ export function GameProvider({ children }) {
         return () => socket.off('connect', handleConnect);
     }, []);
 
-    // Helper: map server gameState string -> UI phase string
     function serverStateToPhase(gameState) {
         switch (gameState) {
             case 'lobby':       return 'waiting-room';
@@ -80,20 +79,16 @@ export function GameProvider({ children }) {
         }
     }
 
-    // ── Set up voice chat socket listeners ─────────────────────────────────
     useEffect(() => {
-        // Relay WebRTC signals to the voiceChat manager
         socket.on('voice-signal', ({ senderId, signal }) => {
             voiceChat.handleSignal(senderId, signal, socket);
         });
 
-        // Another player turned their mic on — initiate a WebRTC connection to them
         socket.on('user-joined-voice', ({ playerId }) => {
             voiceChat.createPeerConnection(playerId, socket, true);
             setPeerMutedMap(prev => ({ ...prev, [playerId]: false }));
         });
 
-        // Peer mic mute/unmute status broadcast
         socket.on('voice-mute-status', ({ playerId, isMuted }) => {
             setPeerMutedMap(prev => ({ ...prev, [playerId]: isMuted }));
         });
@@ -105,14 +100,11 @@ export function GameProvider({ children }) {
         };
     }, []);
 
-    // ── Set up chat & lobby socket listeners ─────────────────────────────────
     useEffect(() => {
-        // Incoming chat message — append to lobbyMessages list
         socket.on('lobby-message-received', (message) => {
             setLobbyMessages(prev => [...prev, message]);
         });
 
-        // Typing status from other players
         socket.on('user-typing-status', ({ playerId, playerName, isTyping }) => {
             setTypingUsers(prev => {
                 const next = { ...prev };
@@ -162,8 +154,6 @@ export function GameProvider({ children }) {
             }
         });
 
-        // ── REJOIN SUCCESS ───────────────────────────────────────────────────
-        // Fired after a page refresh when the server finds the player in the room.
         socket.on('rejoin-success', ({ room, gameState }) => {
             setRoom(room);
             setError(null);
@@ -173,7 +163,6 @@ export function GameProvider({ children }) {
             if (room.turnOrder && room.turnOrder.length > 0) {
                 setTurnOrder(room.turnOrder);
             }
-            // Refresh sessionStorage with latest data
             const myPlayer = room.players.find(p => p.id === socket.id);
             if (myPlayer) {
                 sessionStorage.setItem('pakadyaar_session', JSON.stringify({
@@ -184,8 +173,6 @@ export function GameProvider({ children }) {
             }
         });
 
-        // ── REJOIN ERROR ─────────────────────────────────────────────────────
-        // Room no longer exists — clear stale session and go home.
         socket.on('rejoin-error', ({ message }) => {
             sessionStorage.removeItem('pakadyaar_session');
             setRoom(null);
@@ -223,14 +210,11 @@ export function GameProvider({ children }) {
             });
         });
 
-        // ── PLAYER DISCONNECTED (refresh / network drop) ─────────────────────
-        // Different from player-left — player may reconnect within grace period.
         socket.on('player-disconnected', ({ playerName }) => {
             setLeaveNotification(`${playerName || 'A player'} lost connection… waiting for reconnect.`);
             setTimeout(() => setLeaveNotification(null), 6000);
         });
 
-        // ── KICKED FROM ROOM ─────────────────────────────────────────────────
         socket.on('kicked-from-room', ({ message }) => {
             sessionStorage.removeItem('pakadyaar_session');
             voiceChat.closeAll();
@@ -306,12 +290,10 @@ export function GameProvider({ children }) {
             speakRegionalDealer("Matdan ka samay shuru ho chuka hai!", themeKey);
         });
 
-        // ── VOTE CAST (live vote count updates) ─────────────────────────────
         socket.on('vote-cast', ({ voterId, targetId }) => {
             setVoteData(prev => ({ ...prev, [voterId]: targetId }));
         });
 
-        // ── VOTE DRAW (tie — extra discussion started) ───────────────────────
         socket.on('vote-draw', ({ message }) => {
             setDrawMessage(message || "It's a tie! More discussion time added.");
             setIsCardDisabled(false);
@@ -335,7 +317,6 @@ export function GameProvider({ children }) {
             sound.victory();
         });
 
-        // ── GAME RESET (play-again resets back to lobby) ─────────────────────
         socket.on('game-reset', ({ room }) => {
             setRoom(room);
             setMyWord(null);
@@ -427,9 +408,10 @@ export function GameProvider({ children }) {
     const nextRound = useCallback(() => {
         socket.emit('next-round');
     }, []);
-const playAgain = useCallback(() => {
-    socket.emit('play-again');
-}, []);
+
+    const playAgain = useCallback(() => {
+        socket.emit('play-again');
+    }, []);
 
     const kickPlayer = useCallback((playerId) => {
         socket.emit('kick-player', { playerId });
@@ -440,12 +422,10 @@ const playAgain = useCallback(() => {
     const isHost = room && myId && room.host === myId;
     const myPlayer = room?.players?.find(p => p.id === myId);
 
-    // Real toggleMic — starts mic stream on first use, then mutes/unmutes
     const toggleMic = useCallback(async () => {
         if (!voiceChat.isInitialized()) {
-            // First activation: request mic access and notify room
             const stream = await voiceChat.startLocalStream();
-            if (!stream) return; // Permission denied
+            if (!stream) return;
             socket.emit('join-voice');
         }
         const nowMuted = voiceChat.toggleMic();
@@ -454,12 +434,10 @@ const playAgain = useCallback(() => {
         socket.emit('voice-mute-status', { isMuted: nowMuted });
     }, []);
 
-    // Sends a chat message to the room
     const sendLobbyMessage = useCallback((text) => {
         socket.emit('send-lobby-message', { text });
     }, []);
 
-    // Broadcasts typing status to other room members
     const setTypingStatus = useCallback((isTyping) => {
         socket.emit('typing-status', { isTyping });
     }, []);
@@ -478,7 +456,7 @@ const playAgain = useCallback(() => {
         <GameContext.Provider value={value}>
             {children}
             {leaveNotification && (
-                <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-rose-600 text-white px-4 py-2 rounded-xl shadow-2xl text-xs font-bold animate-bounce">
+                <div className="fixed top-4 left-4 right-4 sm:left-1/2 sm:-translate-x-1/2 sm:max-w-md z-50 bg-rose-600 text-white px-4 py-2.5 rounded-xl shadow-2xl text-xs font-bold animate-bounce text-center">
                     ⚠️ {leaveNotification}
                 </div>
             )}
