@@ -2,11 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '../context/GameContext';
 import { REGIONAL_THEMES } from '../data/themes';
-import PlayerAvatar from '../components/PlayerAvatar';
+import TablePerimeterLayout from '../components/TablePerimeterLayout';
 import sound from '../utils/sound';
 
 export default function TableDistributorPage() {
-  const { room, myWord, isHost, confirmWord, hasConfirmedWord, confirmedCount, startDiscussion } = useGame();
+  const {
+    room, myWord, isHost, confirmWord, hasConfirmedWord, confirmedCount, startDiscussion,
+    myId, isMicOn, peerMutedMap, lobbyMessages, typingUsers, sendLobbyMessage, setTypingStatus, turnOrder
+  } = useGame();
+
   const [isCardFlipped, setIsCardFlipped] = useState(false);
   const [animatingDeal, setAnimatingDeal] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -47,6 +51,7 @@ export default function TableDistributorPage() {
       }
     }
   }, [room, room?.currentRound, room?.config]);
+
   if (!room) return null;
 
   const cfg = room.config || {};
@@ -67,21 +72,19 @@ export default function TableDistributorPage() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="min-h-screen flex flex-col relative overflow-hidden bg-slate-950"
-      style={{
-        backgroundImage: bgImage ? `url(${bgImage})` : 'none',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        paddingTop: '20px',
-        paddingBottom: '20px',
-      }}
+    <TablePerimeterLayout
+      players={room.players || []}
+      myId={myId}
+      turnOrder={turnOrder}
+      isMicOn={isMicOn}
+      peerMutedMap={peerMutedMap}
+      lobbyMessages={lobbyMessages}
+      typingUsers={typingUsers}
+      sendLobbyMessage={sendLobbyMessage}
+      setTypingStatus={setTypingStatus}
+      bgImage={bgImage}
+      tableTitle={`${currentTheme.name} Word Reveal Table (Round ${room.currentRound}/${room.totalRounds})`}
     >
-      <div className="absolute inset-0 bg-slate-950/55 backdrop-blur-[0.5px] pointer-events-none" />
-
       <AnimatePresence>
         {animatingDeal && (
           <motion.div
@@ -89,12 +92,12 @@ export default function TableDistributorPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setAnimatingDeal(false)}
-            className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-6 text-center cursor-pointer"
+            className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-6 text-center cursor-pointer"
           >
             <motion.div
               initial={{ scale: 0.5, y: -40 }}
               animate={{ scale: 1, y: 0 }}
-              className="w-48 h-48 sm:w-60 sm:h-60 mb-4 rounded-3xl overflow-hidden border-4 border-amber-400 shadow-2xl bg-black/50 p-2 flex items-center justify-center"
+              className="w-44 h-44 sm:w-56 sm:h-56 mb-4 rounded-3xl overflow-hidden border-4 border-amber-400 shadow-2xl bg-black/50 p-2 flex items-center justify-center"
             >
               {typeof dealer.icon === 'string' && dealer.icon.length > 2 ? (
                 <img src={dealer.icon} alt="Dealer" className="w-full h-full object-contain filter drop-shadow-2xl scale-110" />
@@ -120,50 +123,29 @@ export default function TableDistributorPage() {
         )}
       </AnimatePresence>
 
-      <div className="text-center px-4 mb-2 z-10">
-        <div className="inline-flex items-center gap-2 bg-black/75 border border-white/25 rounded-full px-4 py-1.5 text-white text-xs shadow-xl">
-          <span>🇮🇳 {currentTheme.name || 'Game'} Table</span>
-          <span>•</span>
-          <span>Round {room.currentRound} of {room.totalRounds}</span>
+      {/* Center Screen: Dealer Badge + Player Card ONLY */}
+      <div className="w-full max-w-sm flex flex-col items-center justify-center space-y-3">
+        {/* Dealer Mini Avatar Badge */}
+        <div className="flex items-center gap-2.5 bg-black/80 border border-amber-400/50 px-3.5 py-1.5 rounded-2xl shadow-xl backdrop-blur-md">
+          <div className="w-9 h-9 rounded-full overflow-hidden border border-amber-400 flex items-center justify-center bg-black/40 flex-shrink-0">
+            {typeof dealer.icon === 'string' && dealer.icon.length > 2 ? (
+              <img src={dealer.icon} alt="Dealer" className="w-full h-full object-contain" />
+            ) : (
+              <span className="text-lg">{dealer.icon || '🤖'}</span>
+            )}
+          </div>
+          <div className="text-left">
+            <span className="text-[10px] text-amber-400 font-black uppercase tracking-wider block">{dealer.name}</span>
+            <p className="text-[11px] text-white/90 italic truncate max-w-[200px]">"{dealer.quote}"</p>
+          </div>
         </div>
-      </div>
 
-      <div className="px-4 mb-2 z-10">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-w-xl mx-auto">
-          {(room.players || []).map((player, i) => (
-            <div key={player.id} className="flex items-center gap-2 p-2 rounded-xl bg-black/80 border border-white/20 shadow-lg">
-              <PlayerAvatar avatar={player.avatar} name={player.name} className="w-9 h-9" textClassName="text-xs" />
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold text-white truncate">{player.name}</p>
-                <p className="text-[9px] text-emerald-400 font-bold">
-                  {room.confirmedWords?.has?.(player.id) || readyCount > i ? '✅ Ready' : '🎴 Dealt'}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex flex-col items-center justify-center px-4 my-2 z-10">
-        <div className="w-36 h-36 sm:w-44 sm:h-44 rounded-3xl overflow-hidden border-3 border-amber-400/80 p-1 shadow-2xl flex items-center justify-center bg-black/40">
-          {typeof dealer.icon === 'string' && dealer.icon.length > 2 ? (
-            <img src={dealer.icon} alt="Dealer" className="w-full h-full object-contain filter drop-shadow-xl" />
-          ) : (
-            <span className="text-7xl">{dealer.icon || '🤖'}</span>
-          )}
-        </div>
-        <div className="bg-black/90 border border-amber-400/50 px-4 py-1 rounded-2xl shadow-xl mt-1.5 text-center">
-          <span className="text-[10px] text-amber-400 font-black uppercase tracking-wider block">{dealer.name}</span>
-          <p className="text-xs text-white italic">"{dealer.quote}"</p>
-        </div>
-      </div>
-
-      <div className="flex-1 flex flex-col items-center justify-center px-4 z-10 mt-1">
+        {/* User's Card Flip Box (Centered & Prominent) */}
         <motion.div
           whileTap={{ scale: 0.97 }}
           onClick={handleFlip}
           className={`
-            relative w-full max-w-[245px] min-h-[320px] rounded-3xl border-2 cursor-pointer overflow-hidden
+            relative w-full max-w-[260px] sm:max-w-[280px] min-h-[260px] sm:min-h-[280px] rounded-3xl border-2 cursor-pointer overflow-hidden
             transition-all duration-400 shadow-2xl p-5 flex flex-col items-center justify-center text-center backdrop-blur-md
             ${isCardFlipped ? 'border-amber-400 bg-slate-900 shadow-amber-500/40' : 'border-amber-400 shadow-black/90'}
           `}
@@ -177,7 +159,7 @@ export default function TableDistributorPage() {
           <AnimatePresence mode="wait">
             {isCardFlipped ? (
               <motion.div key="flipped" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="py-4 bg-slate-950/95 rounded-2xl p-4 border border-white/20 w-full">
-                <p className="text-xs text-amber-300 uppercase font-bold tracking-wider mb-2">Your Word</p>
+                <p className="text-xs text-amber-300 uppercase font-bold tracking-wider mb-2">Your Secret Word</p>
                 <p className="text-3xl font-black text-white tracking-wide my-2">{myWord?.word || 'Sample Word'}</p>
                 {myWord?.isImposter ? (
                   <span className="inline-block mt-3 text-xs bg-rose-600 text-white px-3.5 py-1 rounded-full font-bold shadow-lg">😈 You are the Imposter!</span>
@@ -188,27 +170,28 @@ export default function TableDistributorPage() {
             ) : (
               <motion.div key="hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="py-12 flex flex-col items-center justify-center">
                 <div className="text-5xl mb-2">🎴</div>
-                <p className="text-white font-bold text-sm">Tap to Reveal Secret Word</p>
+                <p className="text-white font-bold text-sm">Tap Card to Reveal Word</p>
               </motion.div>
             )}
           </AnimatePresence>
         </motion.div>
 
-        <p className="text-xs text-amber-300 uppercase tracking-widest mt-2.5 font-extrabold drop-shadow-md">
-          {isCardFlipped ? '🔓 Card Revealed' : '👇 Tap Vertical Card Above to Flip'}
+        <p className="text-[11px] text-amber-300 uppercase tracking-widest font-extrabold drop-shadow-md">
+          {isCardFlipped ? '🔓 Card Revealed' : '👇 Tap Card Above to Flip'}
         </p>
 
-        <div className="w-full max-w-sm mt-3 space-y-2">
+        {/* Action Controls */}
+        <div className="w-full max-w-xs space-y-2">
           {!hasConfirmedWord ? (
             <motion.button
               whileTap={{ scale: 0.96 }}
               onClick={() => { sound.click(); confirmWord(); }}
-              className="w-full py-3 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-2xl shadow-xl text-sm transition-all cursor-pointer"
+              className="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-2xl shadow-xl text-xs transition-all cursor-pointer"
             >
               ✅ I Have Seen My Card (Ready)
             </motion.button>
           ) : (
-            <div className="bg-green-500/25 border border-green-500/50 py-2.5 px-4 rounded-2xl text-center backdrop-blur-sm">
+            <div className="bg-green-500/25 border border-green-500/50 py-2 px-3 rounded-2xl text-center backdrop-blur-sm">
               <p className="text-green-300 text-xs font-bold">✅ Ready! Waiting for others...</p>
             </div>
           )}
@@ -217,14 +200,14 @@ export default function TableDistributorPage() {
             <motion.button
               whileTap={{ scale: 0.96 }}
               onClick={() => { sound.click(); startDiscussion(); }}
-              className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-2xl text-sm shadow-xl transition-all cursor-pointer flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-2xl text-xs shadow-xl transition-all cursor-pointer flex items-center justify-center gap-2"
             >
               <span>🚀 Start Discussion</span>
-              {!allReady && <span className="text-xs bg-black/30 px-2 py-0.5 rounded">({readyCount}/{totalPlayers} Ready)</span>}
+              {!allReady && <span className="text-[10px] bg-black/30 px-1.5 py-0.5 rounded">({readyCount}/{totalPlayers} Ready)</span>}
             </motion.button>
           )}
         </div>
       </div>
-    </motion.div>
+    </TablePerimeterLayout>
   );
 }

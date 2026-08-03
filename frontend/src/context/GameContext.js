@@ -461,11 +461,6 @@ export function GameProvider({ children }) {
     return (
         <GameContext.Provider value={value}>
             {children}
-            {leaveNotification && (
-                <div className="fixed top-4 left-4 right-4 sm:left-1/2 sm:-translate-x-1/2 sm:max-w-md z-50 bg-rose-600 text-white px-4 py-2.5 rounded-xl shadow-2xl text-xs font-bold animate-bounce text-center">
-                    ⚠️ {leaveNotification}
-                </div>
-            )}
         </GameContext.Provider>
     );
 }

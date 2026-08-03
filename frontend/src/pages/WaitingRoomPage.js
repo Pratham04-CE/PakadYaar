@@ -109,7 +109,7 @@ export default function WaitingRoomPage() {
           <h1 className="text-xl sm:text-2xl font-black text-gradient">Game Lobby</h1>
           <p className="text-white/60 text-xs mt-0.5">
             📍 Venue: <span className="text-accent-400 font-bold">{currentTheme.name}</span>
-            {currentTheme.landmark ? ` (${currentTheme.landmark})` : ''}
+            {currentTheme.tagline ? ` (${currentTheme.tagline})` : currentTheme.landmark ? ` (${currentTheme.landmark})` : ''}
           </p>
         </div>
 
@@ -416,11 +416,15 @@ export default function WaitingRoomPage() {
                     onChange={e => handleConfigChange('theme', e.target.value)}
                     className="w-full bg-slate-800/90 border border-purple-500/40 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-purple-400 disabled:opacity-50"
                   >
-                    {Object.entries(REGIONAL_THEMES).map(([key, theme]) => (
-                      <option key={key} value={key} className="bg-slate-900 text-white">
-                        {theme.cardSkin.icon} {theme.name} ({theme.landmark || theme.festival})
-                      </option>
-                    ))}
+                    {Object.entries(REGIONAL_THEMES).map(([key, theme]) => {
+                      const detail = theme.tagline || theme.landmark || theme.festival;
+                      const icon = theme.cardSkin?.icon ? `${theme.cardSkin.icon} ` : '';
+                      return (
+                        <option key={key} value={key} className="bg-slate-900 text-white">
+                          {icon}{theme.name}{detail ? ` (${detail})` : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
