@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useGame } from '../context/GameContext';
+import PlayerAvatar from '../components/PlayerAvatar';
 
 const CONFETTI_COLORS = ['#7c3aed', '#06b6d4', '#f59e0b', '#10b981', '#ef4444', '#ec4899'];
 
@@ -61,12 +62,7 @@ export default function GameOverPage() {
           className="glass-strong p-5 text-center glow-purple mb-4 rounded-2xl"
         >
           <p className="text-white/50 text-xs mb-2">🥇 Winner</p>
-          <div
-            className="w-16 h-16 rounded-full flex items-center justify-center text-white font-black text-2xl mx-auto mb-2 border-4 border-primary-500"
-            style={{ backgroundColor: winner?.avatar?.color || '#7c3aed' }}
-          >
-            {winner?.avatar?.initial || winner?.name?.[0]}
-          </div>
+          <PlayerAvatar avatar={winner?.avatar} name={winner?.name} className="w-16 h-16 mx-auto mb-2 border-4 border-primary-500" textClassName="text-2xl" />
           <p className="text-2xl font-black text-white truncate">{winner?.name}</p>
           <p className="text-accent-400 font-bold text-lg mt-0.5">{winner?.score || 0} pts</p>
           {amIWinner ? (
@@ -106,12 +102,7 @@ export default function GameOverPage() {
                 <span className="text-lg w-7 text-center flex-shrink-0">
                   {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}
                 </span>
-                <div
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-                  style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}
-                >
-                  {player.avatar?.initial || player.name[0]}
-                </div>
+                <PlayerAvatar avatar={player.avatar} name={player.name} className="w-9 h-9" textClassName="text-sm" />
                 <div className="flex-1 min-w-0">
                   <span className="font-semibold text-white text-sm block truncate">{player.name}</span>
                   {player.id === myId && <span className="text-[10px] text-primary-400">You</span>}

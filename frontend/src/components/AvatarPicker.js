@@ -1,79 +1,92 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { MALE_AVATARS, FEMALE_AVATARS } from '../data/avatars';
+import PlayerAvatar, { getAvatarSrc } from './PlayerAvatar';
 import sound from '../utils/sound';
 
-const PRESET_COLORS = ['#7c3aed', '#06b6d4', '#f59e0b', '#10b981', '#ef4444', '#ec4899', '#3b82f6', '#8b5cf6'];
-
 export default function AvatarPicker({ selectedAvatar, onAvatarChange }) {
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        sound.click();
-        onAvatarChange({
-          ...selectedAvatar,
-          image: reader.result, // Base64 image from gallery
-        });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+  const [activeGender, setActiveGender] = useState('male');
 
-  const handleColorSelect = (color) => {
+  const currentList = activeGender === 'male' ? MALE_AVATARS : FEMALE_AVATARS;
+
+  const handleSelectAvatar = (item) => {
     sound.click();
     onAvatarChange({
-      image: null, // Clear custom image if preset color is chosen
-      color: color,
+      id: item.id,
+      image: item.image,
+      color: item.color,
       initial: selectedAvatar?.initial || 'P'
     });
   };
 
   return (
     <div className="flex flex-col gap-3 my-3">
-      <label className="text-xs text-white/60 font-medium">Choose Avatar / Upload from Gallery</label>
-      
-      <div className="flex items-center gap-4">
-        {/* Preview Avatar */}
-        <div 
-          className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-lg border-2 border-amber-400 overflow-hidden shadow-lg flex-shrink-0"
-          style={{ backgroundColor: selectedAvatar?.image ? 'transparent' : (selectedAvatar?.color || '#7c3aed') }}
-        >
-          {selectedAvatar?.image ? (
-            <img src={selectedAvatar.image} alt="Avatar" className="w-full h-full object-cover" />
-          ) : (
-            selectedAvatar?.initial || '👤'
-          )}
-        </div>
+      <div className="flex items-center justify-between">
+        <label className="text-xs text-white/70 font-bold uppercase tracking-wider">Choose Profile Avatar</label>
+        <span className="text-[10px] text-purple-300 font-medium">Tap photo to select</span>
+      </div>
 
-        {/* Gallery Upload Button */}
-        <div className="flex-1">
-          <label className="btn-accent text-xs py-2 px-3 inline-block cursor-pointer text-center rounded-xl font-bold shadow-md">
-            📁 Choose from Gallery
-            <input 
-              type="file" 
-              accept="image/*" 
-              onChange={handleImageUpload} 
-              className="hidden" 
-            />
-          </label>
-          <p className="text-[10px] text-white/40 mt-1">Supports PNG, JPG, JPEG</p>
+      {/* Gender Selection Tabs */}
+      <div className="flex rounded-xl bg-black/40 p-1 border border-white/10">
+        <button
+          type="button"
+          onClick={() => { sound.click(); setActiveGender('male'); }}
+          className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            activeGender === 'male'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'text-white/60 hover:text-white'
+          }`}
+        >
+          <span>👨</span> Male ({MALE_AVATARS.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => { sound.click(); setActiveGender('female'); }}
+          className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            activeGender === 'female'
+              ? 'bg-pink-600 text-white shadow-md'
+              : 'text-white/60 hover:text-white'
+          }`}
+        >
+          <span>👩</span> Female ({FEMALE_AVATARS.length})
+        </button>
+      </div>
+
+      {/* Preview Circle */}
+      <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 border border-white/10">
+        <PlayerAvatar avatar={selectedAvatar} className="w-14 h-14" textClassName="text-lg" />
+
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold text-white">Selected Profile Avatar</p>
+          <p className="text-[10px] text-white/50 truncate">
+            {getAvatarSrc(selectedAvatar) ? 'Photo Avatar active' : 'Default Badge active'}
+          </p>
         </div>
       </div>
 
-      {/* Preset Color Swatches */}
-      <div>
-        <p className="text-[10px] text-white/50 mb-1.5">Or pick a badge color:</p>
-        <div className="flex gap-2 flex-wrap">
-          {PRESET_COLORS.map((col) => (
+      {/* Avatar Image Selection Grid */}
+      <div className="grid grid-cols-5 sm:grid-cols-6 gap-2 max-h-44 overflow-y-auto pr-1 p-1 bg-black/20 rounded-xl border border-white/5">
+        {currentList.map((item) => {
+          const isSelected = selectedAvatar?.id === item.id || selectedAvatar?.image === item.image;
+          const imgSrc = getAvatarSrc(item);
+          return (
             <button
-              key={col}
+              key={item.id}
               type="button"
-              onClick={() => handleColorSelect(col)}
-              className={`w-7 h-7 rounded-full border-2 transition-transform ${selectedAvatar?.color === col && !selectedAvatar?.image ? 'scale-110 border-white' : 'border-transparent'}`}
-              style={{ backgroundColor: col }}
-            />
-          ))}
-        </div>
+              onClick={() => handleSelectAvatar(item)}
+              className={`
+                relative aspect-square rounded-xl overflow-hidden border-2 transition-all cursor-pointer active:scale-95
+                ${isSelected ? 'border-amber-400 ring-2 ring-amber-400/50 scale-105 shadow-lg' : 'border-white/10 opacity-75 hover:opacity-100 hover:border-white/30'}
+              `}
+            >
+              <img src={imgSrc} alt={item.name} className="w-full h-full object-cover" />
+              {isSelected && (
+                <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-amber-400 text-slate-950 rounded-full text-[9px] font-black flex items-center justify-center shadow">
+                  ✓
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

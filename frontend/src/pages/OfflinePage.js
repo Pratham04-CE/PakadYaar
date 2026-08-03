@@ -9,7 +9,7 @@ const CATEGORIES = [
   { id: 'animals',   name: 'Animals',           emoji: '🐶' },
   { id: 'movies',    name: 'Movies',            emoji: '🎬' },
   { id: 'sports',    name: 'Sports',            emoji: '⚽' },
-  { id: 'countries', name: 'Countries',         emoji: '🌍' },
+  { id: 'cities',     name: 'Famous Cities',    emoji: '🏙️' },
   { id: 'technology',name: 'Technology',        emoji: '📱' },
   { id: 'music',     name: 'Music',             emoji: '🎵' },
   { id: 'games',     name: 'Games',             emoji: '🎮' },
@@ -60,6 +60,18 @@ export default function OfflinePage() {
   const [votes, setVotes] = useState({});
   const [results, setResults] = useState(null);
   const [timer, setTimer] = useState(null);
+  const timerRef = React.useRef(null);
+  const usedWordIdsRef = React.useRef(new Set());
+
+  React.useEffect(() => {
+    usedWordIdsRef.current.clear();
+  }, [config.category]);
+
+  React.useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
 
   // Setup helpers
   function addPlayer() { setPlayers(p => [...p, { name: '' }]); }
@@ -73,11 +85,23 @@ export default function OfflinePage() {
       if (filtered.length > 0) pool = filtered;
     }
     if (!pool || pool.length === 0) pool = wordsData.food;
-    const index = Math.floor(Math.random() * pool.length);
-    return pool[index];
+
+    let availablePool = pool.filter(item => !usedWordIdsRef.current.has(item.id));
+    if (availablePool.length === 0) {
+      usedWordIdsRef.current.clear();
+      availablePool = pool;
+    }
+
+    const index = Math.floor(Math.random() * availablePool.length);
+    const selected = availablePool[index];
+    if (selected && selected.id) {
+      usedWordIdsRef.current.add(selected.id);
+    }
+    return selected;
   }
 
   function startGame() {
+    if (timerRef.current) clearInterval(timerRef.current);
     const validPlayers = players.filter(p => p.name.trim());
     if (validPlayers.length < 3) return;
 
@@ -133,11 +157,16 @@ export default function OfflinePage() {
       sound.start();
       let t = config.discussionTime;
       setTimer(t);
-      const iv = setInterval(() => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = setInterval(() => {
         t--;
         setTimer(t);
         if (t <= 10 && t > 0) sound.tick();
-        if (t <= 0) { clearInterval(iv); setPhase(OFFLINE_PHASES.VOTE); sound.start(); }
+        if (t <= 0) {
+          clearInterval(timerRef.current);
+          setPhase(OFFLINE_PHASES.VOTE);
+          sound.start();
+        }
       }, 1000);
     }
   }

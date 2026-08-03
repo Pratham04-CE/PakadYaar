@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import AvatarPicker from '../components/AvatarPicker';
+import { MALE_AVATARS } from '../data/avatars';
 
 export default function LobbyPage() {
   const { createRoom, joinRoom, error, clearError, gamePhase } = useGame();
@@ -11,7 +12,12 @@ export default function LobbyPage() {
   const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
   const [loading, setLoading] = useState(false);
-  const [avatar, setAvatar] = useState({ color: '#7c3aed', initial: 'P', image: null });
+  const [avatar, setAvatar] = useState({ 
+    id: MALE_AVATARS[0].id, 
+    color: MALE_AVATARS[0].color, 
+    initial: 'P', 
+    image: MALE_AVATARS[0].image 
+  });
 
   // Redirect to PhaseRouter at "/" once we're in the room
   useEffect(() => {

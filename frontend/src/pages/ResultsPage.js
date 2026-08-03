@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useGame } from '../context/GameContext';
 import { REGIONAL_THEMES } from '../data/themes';
+import PlayerAvatar from '../components/PlayerAvatar';
 import sound from '../utils/sound';
 
 export default function ResultsPage() {
@@ -93,16 +94,7 @@ export default function ResultsPage() {
                   key={player.id}
                   className="flex items-center gap-3 p-2.5 rounded-xl bg-black/40 border border-white/10"
                 >
-                  <div
-                    className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs text-white flex-shrink-0 overflow-hidden shadow-md"
-                    style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}
-                  >
-                    {player.avatar?.image ? (
-                      <img src={player.avatar.image} alt="Avatar" className="w-full h-full object-cover" />
-                    ) : (
-                      player.avatar?.initial || player.name[0]
-                    )}
-                  </div>
+                  <PlayerAvatar avatar={player.avatar} name={player.name} className="w-9 h-9" textClassName="text-xs" />
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">

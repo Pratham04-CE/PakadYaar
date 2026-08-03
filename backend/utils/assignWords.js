@@ -9,9 +9,9 @@ const getRandomWordPair = require('./randomWord');
  * @param {Object} config   - Game config { imposters, category, difficulty, language }
  * @returns {Object} Map of socketId → { word, meaning, translations, hints, isImposter, ... }
  */
-function assignWords(players, config = {}) {
+function assignWords(players, config = {}, excludeIds = []) {
     const { imposters = 1, category = 'food', difficulty = 'all', language = 'en' } = config;
-    const pair = getRandomWordPair(category, difficulty);
+    const pair = getRandomWordPair(category, difficulty, excludeIds);
 
     // pair contains { id, category, difficulty, word, imposterWord }
     const normalWordObj = typeof pair.word === 'object' ? pair.word : { text: pair.word };
@@ -28,10 +28,19 @@ function assignWords(players, config = {}) {
         const isImposter = imposterIds.has(player.id);
         const selectedObj = isImposter ? imposterWordObj : normalWordObj;
 
-        // Determine word display string (use translation if available and requested, otherwise main text)
+        // Determine word display string
         const wordText = selectedObj.text;
         const meaningText = selectedObj.meaning?.[language] || selectedObj.meaning?.en || '';
         const translationText = selectedObj.translations?.[language] || '';
+
+        // Extract localized hints for the selected language
+        const rawHints = selectedObj.hints || [];
+        const hints = rawHints.map(h => {
+            if (typeof h === 'object' && h !== null) {
+                return h[language] || h.en || h.hi || h.gu || '';
+            }
+            return h;
+        });
 
         assignments[player.id] = {
             id: pair.id,
@@ -42,12 +51,18 @@ function assignWords(players, config = {}) {
             meanings: selectedObj.meaning || {},
             translationText,
             translations: selectedObj.translations || {},
-            hints: selectedObj.hints || [],
+            hints,
             tags: selectedObj.tags || [],
             isImposter,
             pairWordText: normalWordObj.text,
             pairImposterText: imposterWordObj.text
         };
+    });
+
+    Object.defineProperty(assignments, '_selectedPairId', {
+        value: pair.id,
+        enumerable: false,
+        writable: true
     });
 
     return assignments;

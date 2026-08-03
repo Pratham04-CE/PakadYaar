@@ -4,6 +4,16 @@ class SoundManager {
   constructor() {
     this.audioCtx = null;
     this.muted = localStorage.getItem('pakadyaar_muted') === 'true';
+
+    if (typeof window !== 'undefined') {
+      const unlockAudio = () => {
+        this.init();
+        window.removeEventListener('pointerdown', unlockAudio);
+        window.removeEventListener('keydown', unlockAudio);
+      };
+      window.addEventListener('pointerdown', unlockAudio, { once: true });
+      window.addEventListener('keydown', unlockAudio, { once: true });
+    }
   }
 
   init() {

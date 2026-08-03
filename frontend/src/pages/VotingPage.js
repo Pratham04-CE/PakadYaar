@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '../context/GameContext';
 import { REGIONAL_THEMES } from '../data/themes';
+import PlayerAvatar from '../components/PlayerAvatar';
 import sound from '../utils/sound';
 
 export default function VotingPage() {
@@ -134,16 +135,7 @@ export default function VotingPage() {
                   `}
                 >
                   <div className="flex items-center gap-3">
-                    <div
-                      className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-base flex-shrink-0 shadow-md overflow-hidden"
-                      style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}
-                    >
-                      {player.avatar?.image ? (
-                        <img src={player.avatar.image} alt="Avatar" className="w-full h-full object-cover" />
-                      ) : (
-                        player.avatar?.initial || player.name[0]
-                      )}
-                    </div>
+                    <PlayerAvatar avatar={player.avatar} name={player.name} className="w-12 h-12" textClassName="text-base" />
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap mb-0.5">

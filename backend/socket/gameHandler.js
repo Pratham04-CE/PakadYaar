@@ -1,7 +1,7 @@
 const rooms = require('../state/rooms');
 const playerRooms = require('../state/playerRooms');
 const assignWords = require('../utils/assignWords');
-const { sanitizeRoom } = require('./roomHandler');
+const { sanitizeRoom, startNewRound } = require('./roomHandler');
 
 function gameHandler(io, socket) {
 
@@ -91,12 +91,18 @@ function gameHandler(io, socket) {
         const room = rooms.get(roomCode);
         if (!room || room.host !== socket.id) return;
 
+        if (room.timers.gameOver) {
+            clearTimeout(room.timers.gameOver);
+            delete room.timers.gameOver;
+        }
+
         // Reset scores and round counter
         room.players.forEach(p => { p.score = 0; });
         room.currentRound = 0;
         room.gameState = 'lobby';
         room.words = {};
         room.votes = {};
+        room.usedWordIds = [];
         if (room.confirmedWords) room.confirmedWords.clear();
 
         io.to(roomCode).emit('game-reset', { room: sanitizeRoom(room) });
@@ -170,10 +176,10 @@ function tallyVotes(io, room) {
             voteCounts,
             message: "It's a tie! 2 more minutes of discussion..."
         });
-        room.gameState = 'word-reveal'; // reset so start-discussion can fire
         setTimeout(() => {
-            room.gameState = 'word-reveal';
-            startDiscussion(io, room, 120);
+            if (rooms.has(room.code)) {
+                startDiscussion(io, room, 120);
+            }
         }, 3000);
         return;
     }
@@ -200,6 +206,10 @@ function tallyVotes(io, room) {
 
     room.gameState = 'results';
 
+    // Determine secret word for crew reveal
+    const normalPlayer = room.players.find(p => !room.words[p.id]?.isImposter);
+    const secretWord = normalPlayer && room.words[normalPlayer.id] ? room.words[normalPlayer.id].word : 'N/A';
+
     io.to(room.code).emit('vote-results', {
         voteCounts,
         votes: room.votes,
@@ -208,6 +218,7 @@ function tallyVotes(io, room) {
         eliminatedIsImposter,
         imposterIds,
         winnerSide,
+        secretWord,
         words: room.words,           // Full word reveal
         scores: room.players,
         currentRound: room.currentRound,
@@ -216,22 +227,6 @@ function tallyVotes(io, room) {
     });
 
     console.log(`Round ${room.currentRound} results in room ${room.code}: ${winnerSide} win`);
-}
-
-function startNewRound(io, room) {
-    room.currentRound++;
-    room.words = assignWords(room.players, room.config);
-    room.votes = {};
-    room.confirmedWords = new Set();
-    room.gameState = 'word-reveal';
-
-    io.to(room.code).emit('game-started', { room: sanitizeRoom(room) });
-
-    room.players.forEach(player => {
-        io.to(player.id).emit('your-word', room.words[player.id]);
-    });
-
-    console.log(`Round ${room.currentRound} started in room ${room.code}`);
 }
 
 function endGame(io, room) {
@@ -246,8 +241,10 @@ function endGame(io, room) {
         totalRounds: room.totalRounds
     });
 
+    if (room.timers.gameOver) clearTimeout(room.timers.gameOver);
+
     // Reset room back to lobby after 30 seconds
-    setTimeout(() => {
+    room.timers.gameOver = setTimeout(() => {
         if (rooms.has(room.code)) {
             room.players.forEach(p => { p.score = 0; });
             room.currentRound = 0;

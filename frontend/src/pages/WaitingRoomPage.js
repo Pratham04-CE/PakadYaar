@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '../context/GameContext';
 import { REGIONAL_THEMES } from '../data/themes';
+import PlayerAvatar from '../components/PlayerAvatar';
 import sound from '../utils/sound';
 
 const CATEGORIES = [
@@ -9,7 +10,7 @@ const CATEGORIES = [
   { id: 'animals', name: 'Animals', emoji: '🐶' },
   { id: 'movies', name: 'Movies', emoji: '🎬' },
   { id: 'sports', name: 'Sports', emoji: '⚽' },
-  { id: 'countries', name: 'Countries', emoji: '🌍' },
+  { id: 'cities', name: 'Cities', emoji: '🏙️' },
   { id: 'technology', name: 'Tech', emoji: '📱' },
   { id: 'music', name: 'Music', emoji: '🎵' },
   { id: 'games', name: 'Games', emoji: '🎮' },
@@ -26,8 +27,8 @@ const DIFFICULTIES = [
 
 const LANGUAGES = [
   { id: 'en', name: 'English', flag: '🇬🇧' },
-  { id: 'hi', name: 'Hindi', flag: '🇮🇳' },
-  { id: 'gu', name: 'Gujarati', flag: '🇮🇳' },
+  { id: 'hi', name: 'Hindi (हिंदी)', flag: '🇮🇳' },
+  { id: 'gu', name: 'Gujarati (ગુજરાતી)', flag: '🇮🇳' },
 ];
 
 const QUICK_EMOJIS = ['😀', '😂', '🔥', '👍', '😎', '🎉', '😱', '💩'];
@@ -40,7 +41,7 @@ export default function WaitingRoomPage() {
   } = useGame();
   
   const [copied, setCopied] = useState(false);
-  const [showConfig, setShowConfig] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const chatBottomRef = useRef(null);
 
@@ -89,6 +90,10 @@ export default function WaitingRoomPage() {
   const currentTheme = REGIONAL_THEMES[currentThemeKey] || REGIONAL_THEMES.gujarat;
   const typingNames = Object.values(typingUsers || {});
 
+  const currentCategoryObj = CATEGORIES.find(c => c.id === cfg.category) || CATEGORIES[0];
+  const currentLangObj = LANGUAGES.find(l => l.id === (cfg.language || 'en')) || LANGUAGES[0];
+  const currentDiffObj = DIFFICULTIES.find(d => d.id === (cfg.difficulty || 'all')) || DIFFICULTIES[0];
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -102,8 +107,9 @@ export default function WaitingRoomPage() {
         {/* Header Title */}
         <div className="text-center mb-4">
           <h1 className="text-xl sm:text-2xl font-black text-gradient">Game Lobby</h1>
-          <p className="text-white/50 text-xs mt-0.5">
-            📍 Venue: <span className="text-accent-400 font-bold">{currentTheme.name}</span> ({currentTheme.landmark})
+          <p className="text-white/60 text-xs mt-0.5">
+            📍 Venue: <span className="text-accent-400 font-bold">{currentTheme.name}</span>
+            {currentTheme.landmark ? ` (${currentTheme.landmark})` : ''}
           </p>
         </div>
 
@@ -127,6 +133,56 @@ export default function WaitingRoomPage() {
             </button>
           </div>
           {copied && <p className="text-accent-400 text-xs mt-1 animate-pulse">Copied to clipboard!</p>}
+        </motion.div>
+
+        {/* Active Game Settings Field Card */}
+        <motion.div
+          initial={{ y: 10, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.05 }}
+          className="glass p-3.5 mb-4 rounded-2xl border border-white/10 flex flex-col gap-2.5 shadow-lg"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+              <span>🎯</span> Active Game Configuration
+            </span>
+            {isHost ? (
+              <button
+                onClick={() => { sound.click(); setShowConfigModal(true); }}
+                className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow cursor-pointer active:scale-95 flex items-center gap-1"
+                style={{ touchAction: 'manipulation' }}
+              >
+                <span>⚙️</span> Host Settings
+              </button>
+            ) : (
+              <button
+                onClick={() => { sound.click(); setShowConfigModal(true); }}
+                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all border border-white/10 cursor-pointer active:scale-95 flex items-center gap-1"
+                style={{ touchAction: 'manipulation' }}
+              >
+                <span>👁️</span> View Settings
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+            <div className="p-2 rounded-xl bg-white/5 border border-white/5">
+              <span className="text-white/40 block text-[10px]">Venue</span>
+              <span className="font-bold text-amber-300 truncate block">{currentTheme.cardSkin?.icon || '🏛️'} {currentTheme.name}</span>
+            </div>
+            <div className="p-2 rounded-xl bg-white/5 border border-white/5">
+              <span className="text-white/40 block text-[10px]">Category</span>
+              <span className="font-bold text-white truncate block">{currentCategoryObj.emoji} {currentCategoryObj.name}</span>
+            </div>
+            <div className="p-2 rounded-xl bg-white/5 border border-white/5">
+              <span className="text-white/40 block text-[10px]">Language</span>
+              <span className="font-bold text-white truncate block">{currentLangObj.flag} {currentLangObj.name}</span>
+            </div>
+            <div className="p-2 rounded-xl bg-white/5 border border-white/5">
+              <span className="text-white/40 block text-[10px]">Difficulty</span>
+              <span className="font-bold text-white truncate block">{currentDiffObj.emoji} {currentDiffObj.name}</span>
+            </div>
+          </div>
         </motion.div>
 
         {/* Players List */}
@@ -161,12 +217,7 @@ export default function WaitingRoomPage() {
                     ${player.id === myId ? 'border-primary-500/40 bg-primary-500/10' : 'border-white/5 bg-white/3'}
                   `}
                 >
-                  <div
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 shadow-md"
-                    style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}
-                  >
-                    {player.avatar?.initial || player.name[0].toUpperCase()}
-                  </div>
+                  <PlayerAvatar avatar={player.avatar} name={player.name} className="w-9 h-9" />
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -274,187 +325,6 @@ export default function WaitingRoomPage() {
           </form>
         </motion.div>
 
-        {/* Config Panel with Regional Theme Selector */}
-        <motion.div
-          initial={{ y: 10, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="glass p-4 mb-4 rounded-2xl"
-        >
-          <button
-            onClick={() => setShowConfig(v => !v)}
-            className="w-full flex items-center justify-between cursor-pointer"
-            style={{ touchAction: 'manipulation' }}
-          >
-            <h2 className="font-bold text-white text-sm">
-              ⚙️ Game Settings & Indian Venues
-              {!isHost && <span className="text-white/30 font-normal text-xs ml-2">(Host only)</span>}
-            </h2>
-            <span className="text-white/40 text-xs">{showConfig ? '▲ Hide' : '▼ Show'}</span>
-          </button>
-
-          <AnimatePresence>
-            {showConfig && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="space-y-4 mt-4 pt-4 border-t border-white/10">
-                  
-                  {/* --- Regional Theme / State Selector --- */}
-                  <div>
-                    <label className="block text-xs text-white/60 mb-2 font-medium">🇮🇳 Choose Indian Venue & Vibe</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {Object.entries(REGIONAL_THEMES).map(([key, theme]) => (
-                        <button
-                          key={key}
-                          disabled={!isHost}
-                          onClick={() => handleConfigChange('theme', key)}
-                          style={{ touchAction: 'manipulation' }}
-                          className={`
-                            flex items-center gap-2 p-2.5 rounded-xl border text-xs font-medium text-left
-                            transition-all duration-150 active:scale-95
-                            ${currentThemeKey === key
-                              ? 'bg-primary-600/30 border-primary-500 text-white shadow-lg'
-                              : 'border-white/10 text-white/60 hover:border-white/20 hover:text-white'
-                            }
-                            ${!isHost ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                          `}
-                        >
-                          <span className="text-lg">{theme.cardSkin.icon}</span>
-                          <div className="min-w-0">
-                            <div className="font-bold truncate text-white">{theme.name}</div>
-                            <div className="text-[10px] text-white/40 truncate">{theme.festival}</div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Category */}
-                  <div>
-                    <label className="block text-xs text-white/60 mb-2 font-medium">Category</label>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {CATEGORIES.map(cat => (
-                        <button
-                          key={cat.id}
-                          disabled={!isHost}
-                          onClick={() => handleConfigChange('category', cat.id)}
-                          style={{ touchAction: 'manipulation' }}
-                          className={`
-                            flex items-center gap-1.5 p-2 rounded-xl border text-xs font-medium text-left
-                            transition-all duration-150 active:scale-95
-                            ${cfg.category === cat.id
-                              ? 'bg-primary-600/30 border-primary-500/60 text-white'
-                              : 'border-white/10 text-white/50 hover:border-white/20 hover:text-white/80'
-                            }
-                            ${!isHost ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                          `}
-                        >
-                          <span>{cat.emoji}</span>
-                          <span className="truncate">{cat.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Difficulty */}
-                  <div>
-                    <label className="block text-xs text-white/60 mb-2 font-medium">Difficulty</label>
-                    <div className="grid grid-cols-4 gap-1.5">
-                      {DIFFICULTIES.map(d => (
-                        <button
-                          key={d.id}
-                          disabled={!isHost}
-                          onClick={() => handleConfigChange('difficulty', d.id)}
-                          style={{ touchAction: 'manipulation' }}
-                          className={`
-                            flex flex-col items-center justify-center gap-0.5 p-2 rounded-xl border text-[10px] font-semibold
-                            transition-all duration-150 active:scale-95
-                            ${(cfg.difficulty || 'all') === d.id
-                              ? 'bg-accent-600/30 border-accent-500/60 text-white'
-                              : 'border-white/10 text-white/50 hover:border-white/20 hover:text-white/80'
-                            }
-                            ${!isHost ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                          `}
-                        >
-                          <span className="text-base">{d.emoji}</span>
-                          <span>{d.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Language */}
-                  <div>
-                    <label className="block text-xs text-white/60 mb-2 font-medium">Language</label>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {LANGUAGES.map(lang => (
-                        <button
-                          key={lang.id}
-                          disabled={!isHost}
-                          onClick={() => handleConfigChange('language', lang.id)}
-                          style={{ touchAction: 'manipulation' }}
-                          className={`
-                            flex items-center justify-center gap-1.5 p-2 rounded-xl border text-xs font-semibold
-                            transition-all duration-150 active:scale-95
-                            ${(cfg.language || 'en') === lang.id
-                              ? 'bg-primary-600/30 border-primary-500/60 text-white'
-                              : 'border-white/10 text-white/50 hover:border-white/20 hover:text-white/80'
-                            }
-                            ${!isHost ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                          `}
-                        >
-                          <span>{lang.flag}</span>
-                          <span className="truncate">{lang.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <ConfigSlider
-                    label="Rounds"
-                    value={cfg.rounds}
-                    min={1} max={10}
-                    disabled={!isHost}
-                    onChange={v => handleConfigChange('rounds', v)}
-                    display={v => `${v} round${v !== 1 ? 's' : ''}`}
-                  />
-
-                  <ConfigSlider
-                    label="Imposters"
-                    value={cfg.imposters}
-                    min={1} max={3}
-                    disabled={!isHost}
-                    onChange={v => handleConfigChange('imposters', v)}
-                    display={v => `${v} imposter${v !== 1 ? 's' : ''}`}
-                  />
-
-                  <ConfigSlider
-                    label="Discussion Time"
-                    value={cfg.discussionTime}
-                    min={30} max={300} step={30}
-                    disabled={!isHost}
-                    onChange={v => handleConfigChange('discussionTime', v)}
-                    display={v => `${v}s`}
-                  />
-
-                  <ConfigSlider
-                    label="Voting Time"
-                    value={cfg.votingTime}
-                    min={30} max={120} step={15}
-                    disabled={!isHost}
-                    onChange={v => handleConfigChange('votingTime', v)}
-                    display={v => `${v}s`}
-                  />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-
         {/* Error message */}
         <AnimatePresence>
           {error && (
@@ -474,7 +344,7 @@ export default function WaitingRoomPage() {
           <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.3 }}
+            transition={{ delay: 0.2 }}
           >
             <button
               id="start-game-btn"
@@ -500,27 +370,190 @@ export default function WaitingRoomPage() {
             ⏳ Waiting for the host to start the game...
           </motion.p>
         )}
+
       </div>
+
+      {/* --- Center Popup Box Modal for Game Settings --- */}
+      <AnimatePresence>
+        {showConfigModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4"
+            onClick={() => setShowConfigModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.9, y: 20, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="w-full max-w-sm sm:max-w-md bg-slate-900/95 border border-purple-500/40 rounded-2xl p-4 sm:p-5 shadow-2xl relative max-h-[85vh] overflow-y-auto"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10">
+                <h2 className="font-black text-white text-base flex items-center gap-2">
+                  <span>⚙️</span> Game Settings & Filters
+                  {!isHost && <span className="text-amber-400 font-normal text-xs">(Read Only)</span>}
+                </h2>
+                <button
+                  onClick={() => { sound.click(); setShowConfigModal(false); }}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white flex items-center justify-center text-sm font-bold transition-all cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-3.5">
+                
+                {/* --- Indian Venue Dropdown --- */}
+                <div>
+                  <label className="block text-xs text-white/60 mb-1.5 font-medium">🇮🇳 Choose Indian Venue & Vibe</label>
+                  <select
+                    disabled={!isHost}
+                    value={currentThemeKey}
+                    onChange={e => handleConfigChange('theme', e.target.value)}
+                    className="w-full bg-slate-800/90 border border-purple-500/40 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-purple-400 disabled:opacity-50"
+                  >
+                    {Object.entries(REGIONAL_THEMES).map(([key, theme]) => (
+                      <option key={key} value={key} className="bg-slate-900 text-white">
+                        {theme.cardSkin.icon} {theme.name} ({theme.landmark || theme.festival})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Category Dropdown */}
+                <div>
+                  <label className="block text-xs text-white/60 mb-1.5 font-medium">Category</label>
+                  <select
+                    disabled={!isHost}
+                    value={cfg.category}
+                    onChange={e => handleConfigChange('category', e.target.value)}
+                    className="w-full bg-slate-800/90 border border-purple-500/40 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-purple-400 disabled:opacity-50"
+                  >
+                    {CATEGORIES.map(cat => (
+                      <option key={cat.id} value={cat.id} className="bg-slate-900 text-white">
+                        {cat.emoji} {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Difficulty Dropdown */}
+                <div>
+                  <label className="block text-xs text-white/60 mb-1.5 font-medium">Difficulty</label>
+                  <select
+                    disabled={!isHost}
+                    value={cfg.difficulty || 'all'}
+                    onChange={e => handleConfigChange('difficulty', e.target.value)}
+                    className="w-full bg-slate-800/90 border border-purple-500/40 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-purple-400 disabled:opacity-50"
+                  >
+                    {DIFFICULTIES.map(d => (
+                      <option key={d.id} value={d.id} className="bg-slate-900 text-white">
+                        {d.emoji} {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Language Dropdown */}
+                <div>
+                  <label className="block text-xs text-white/60 mb-1.5 font-medium">Language</label>
+                  <select
+                    disabled={!isHost}
+                    value={cfg.language || 'en'}
+                    onChange={e => handleConfigChange('language', e.target.value)}
+                    className="w-full bg-slate-800/90 border border-purple-500/40 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-purple-400 disabled:opacity-50"
+                  >
+                    {LANGUAGES.map(lang => (
+                      <option key={lang.id} value={lang.id} className="bg-slate-900 text-white">
+                        {lang.flag} {lang.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Step Counter Controls (+ / - Buttons) */}
+                <StepCounter
+                  label="Rounds"
+                  value={cfg.rounds}
+                  min={1} max={10}
+                  disabled={!isHost}
+                  onChange={v => handleConfigChange('rounds', v)}
+                  display={v => `${v} round${v !== 1 ? 's' : ''}`}
+                />
+
+                <StepCounter
+                  label="Imposters"
+                  value={cfg.imposters}
+                  min={1} max={3}
+                  disabled={!isHost}
+                  onChange={v => handleConfigChange('imposters', v)}
+                  display={v => `${v} imposter${v !== 1 ? 's' : ''}`}
+                />
+
+                <StepCounter
+                  label="Discussion Time"
+                  value={cfg.discussionTime}
+                  min={30} max={300} step={30}
+                  disabled={!isHost}
+                  onChange={v => handleConfigChange('discussionTime', v)}
+                  display={v => `${v}s`}
+                />
+
+                <StepCounter
+                  label="Voting Time"
+                  value={cfg.votingTime}
+                  min={30} max={120} step={15}
+                  disabled={!isHost}
+                  onChange={v => handleConfigChange('votingTime', v)}
+                  display={v => `${v}s`}
+                />
+              </div>
+
+              {/* Close Button */}
+              <button
+                onClick={() => { sound.click(); setShowConfigModal(false); }}
+                className="btn-primary w-full py-3 mt-4 text-xs font-bold rounded-xl cursor-pointer shadow-lg"
+              >
+                ✓ Apply & Close
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
 
-function ConfigSlider({ label, value, min, max, step = 1, disabled, onChange, display }) {
+function StepCounter({ label, value, min, max, step = 1, disabled, onChange, display }) {
   return (
-    <div>
-      <div className="flex justify-between mb-2">
-        <label className="text-xs text-white/60">{label}</label>
-        <span className="text-xs font-bold text-accent-400">{display(value)}</span>
+    <div className="flex items-center justify-between p-2.5 bg-black/40 rounded-xl border border-white/10">
+      <div>
+        <span className="text-xs font-semibold text-white/80 block">{label}</span>
+        <span className="text-[10px] text-amber-400 font-bold">{display(value)}</span>
       </div>
-      <input
-        type="range"
-        min={min} max={max} step={step}
-        value={value}
-        disabled={disabled}
-        onChange={e => onChange(Number(e.target.value))}
-        className="w-full h-2 rounded-full appearance-none cursor-pointer bg-white/10 accent-purple-500 disabled:opacity-40 disabled:cursor-not-allowed"
-        style={{ touchAction: 'none' }}
-      />
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={disabled || value <= min}
+          onClick={() => { sound.click(); onChange(Math.max(min, value - step)); }}
+          className="w-8 h-8 rounded-lg bg-purple-600/40 hover:bg-purple-600 border border-purple-400/40 text-white font-black text-base flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer active:scale-95 shadow"
+        >
+          -
+        </button>
+        <span className="text-xs font-black text-white w-8 text-center">{value}</span>
+        <button
+          type="button"
+          disabled={disabled || value >= max}
+          onClick={() => { sound.click(); onChange(Math.min(max, value + step)); }}
+          className="w-8 h-8 rounded-lg bg-purple-600/40 hover:bg-purple-600 border border-purple-400/40 text-white font-black text-base flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer active:scale-95 shadow"
+        >
+          +
+        </button>
+      </div>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '../context/GameContext';
 import { REGIONAL_THEMES } from '../data/themes';
+import PlayerAvatar from '../components/PlayerAvatar';
 import sound from '../utils/sound';
 
 export default function TableDistributorPage() {
@@ -131,16 +132,7 @@ export default function TableDistributorPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-w-xl mx-auto">
           {(room.players || []).map((player, i) => (
             <div key={player.id} className="flex items-center gap-2 p-2 rounded-xl bg-black/80 border border-white/20 shadow-lg">
-              <div
-                className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs text-white border border-white/30 flex-shrink-0 overflow-hidden"
-                style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}
-              >
-                {player.avatar?.image ? (
-                  <img src={player.avatar.image} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  player.avatar?.initial || player.name[0]
-                )}
-              </div>
+              <PlayerAvatar avatar={player.avatar} name={player.name} className="w-9 h-9" textClassName="text-xs" />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold text-white truncate">{player.name}</p>
                 <p className="text-[9px] text-emerald-400 font-bold">

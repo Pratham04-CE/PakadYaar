@@ -24,7 +24,7 @@ function roomHandler(io, socket) {
     // ─────────────────────────────────────────────
     // CREATE ROOM
     // ─────────────────────────────────────────────
-    socket.on('create-room', ({ playerName }) => {
+    socket.on('create-room', ({ playerName, avatar }) => {
         if (!playerName || !playerName.trim()) {
             socket.emit('error', { message: 'Player name is required' });
             return;
@@ -38,7 +38,7 @@ function roomHandler(io, socket) {
             name: playerName.trim(),
             isHost: true,
             score: 0,
-            avatar: generateAvatar(playerName.trim())
+            avatar: (avatar && (avatar.image || avatar.id || avatar.color)) ? avatar : generateAvatar(playerName.trim())
         };
 
         const room = {
@@ -52,6 +52,7 @@ function roomHandler(io, socket) {
             words: {},
             votes: {},
             timers: {},
+            usedWordIds: [],
             confirmedWords: new Set()
         };
 
@@ -66,7 +67,7 @@ function roomHandler(io, socket) {
     // ─────────────────────────────────────────────
     // JOIN ROOM
     // ─────────────────────────────────────────────
-    socket.on('join-room', ({ roomCode, playerName }) => {
+    socket.on('join-room', ({ roomCode, playerName, avatar }) => {
         if (!playerName || !playerName.trim()) {
             socket.emit('join-error', { message: 'Player name is required' });
             return;
@@ -93,7 +94,7 @@ function roomHandler(io, socket) {
             name: playerName.trim(),
             isHost: false,
             score: 0,
-            avatar: generateAvatar(playerName.trim())
+            avatar: (avatar && (avatar.image || avatar.id || avatar.color)) ? avatar : generateAvatar(playerName.trim())
         };
 
         room.players.push(player);
@@ -108,7 +109,7 @@ function roomHandler(io, socket) {
     // ─────────────────────────────────────────────
     // REJOIN ROOM (after page refresh / reconnect)
     // ─────────────────────────────────────────────
-    socket.on('rejoin-room', ({ roomCode, playerName }) => {
+    socket.on('rejoin-room', ({ roomCode, playerName, avatar }) => {
         if (!roomCode || !playerName) {
             socket.emit('rejoin-error', { message: 'Missing room code or player name.' });
             return;
@@ -139,6 +140,9 @@ function roomHandler(io, socket) {
         }
 
         const player = room.players[playerIndex];
+        if (avatar && (avatar.image || avatar.id || avatar.color)) {
+            player.avatar = avatar;
+        }
         playerRooms.delete(oldSocketId);
 
         player.id = socket.id;
@@ -165,6 +169,10 @@ function roomHandler(io, socket) {
                     room.votes[voterId] = socket.id;
                 }
             }
+        }
+
+        if (room.turnOrder && Array.isArray(room.turnOrder)) {
+            room.turnOrder = room.turnOrder.map(id => id === oldSocketId ? socket.id : id);
         }
 
         console.log(`${name} rejoined room ${code} (${oldSocketId} -> ${socket.id})`);
@@ -230,6 +238,10 @@ function roomHandler(io, socket) {
         const room = rooms.get(roomCode);
         if (!room || room.host !== socket.id) return;
         if (room.gameState !== 'lobby') return;
+
+        if (config && config.category && config.category !== room.config.category) {
+            room.usedWordIds = [];
+        }
 
         room.config = { ...room.config, ...config };
         room.totalRounds = room.config.rounds;
@@ -391,7 +403,11 @@ function handleLeave(io, socket) {
 
 function startNewRound(io, room) {
     room.currentRound++;
-    room.words = assignWords(room.players, room.config);
+    if (!room.usedWordIds) room.usedWordIds = [];
+    room.words = assignWords(room.players, room.config, room.usedWordIds);
+    if (room.words._selectedPairId) {
+        room.usedWordIds.push(room.words._selectedPairId);
+    }
     room.votes = {};
     room.confirmedWords = new Set();
     room.gameState = 'word-reveal';
@@ -413,6 +429,7 @@ function startNewRound(io, room) {
 function clearRoomTimers(room) {
     if (room.timers.discussion) clearInterval(room.timers.discussion);
     if (room.timers.voting) clearInterval(room.timers.voting);
+    if (room.timers.gameOver) clearTimeout(room.timers.gameOver);
 }
 
 function sanitizeRoom(room) {

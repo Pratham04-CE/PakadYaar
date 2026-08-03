@@ -1,8 +1,13 @@
 import { render, screen } from '@testing-library/react';
-import App from './App';
+import { MemoryRouter } from 'react-router-dom';
+import HomePage from './pages/HomePage';
 
-test('renders learn react link', () => {
-  render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+test('renders PakadYaar application title', () => {
+  render(
+    <MemoryRouter>
+      <HomePage />
+    </MemoryRouter>
+  );
+  const titleElements = screen.getAllByText(/Pakad/i);
+  expect(titleElements.length).toBeGreaterThan(0);
 });

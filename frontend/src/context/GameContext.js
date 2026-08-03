@@ -123,6 +123,11 @@ export function GameProvider({ children }) {
         };
     }, []);
 
+    const roomRef = React.useRef(room);
+    useEffect(() => {
+        roomRef.current = room;
+    }, [room]);
+
     useEffect(() => {
         socket.on('room-created', ({ room }) => {
             setRoom(room);
@@ -194,8 +199,9 @@ export function GameProvider({ children }) {
 
         socket.on('player-left', ({ playerId, playerName }) => {
             let nameToDisplay = playerName;
-            if (!nameToDisplay && room && room.players) {
-                const foundPlayer = room.players.find(p => p.id === playerId);
+            const currentRoom = roomRef.current;
+            if (!nameToDisplay && currentRoom && currentRoom.players) {
+                const foundPlayer = currentRoom.players.find(p => p.id === playerId);
                 if (foundPlayer) nameToDisplay = foundPlayer.name;
             }
 
@@ -264,7 +270,7 @@ export function GameProvider({ children }) {
             if (to && to.length > 0) setTurnOrder(to);
             sound.start();
             
-            const themeKey = room?.config?.theme || 'gujarat';
+            const themeKey = roomRef.current?.config?.theme || 'gujarat';
             speakRegionalDealer("Charcha shuru ho gayi hai, savdhan rahein!", themeKey);
         });
 
@@ -273,7 +279,7 @@ export function GameProvider({ children }) {
             if (remaining <= 15 && remaining > 0) {
                 sound.tick(remaining);
                 if (remaining === 10) {
-                    const themeKey = room?.config?.theme || 'gujarat';
+                    const themeKey = roomRef.current?.config?.theme || 'gujarat';
                     speakRegionalDealer("Samay samapt hone wala hai!", themeKey);
                 }
             }
@@ -286,7 +292,7 @@ export function GameProvider({ children }) {
             setIsCardDisabled(true);
             sound.start();
             
-            const themeKey = room?.config?.theme || 'gujarat';
+            const themeKey = roomRef.current?.config?.theme || 'gujarat';
             speakRegionalDealer("Matdan ka samay shuru ho chuka hai!", themeKey);
         });
 
@@ -353,7 +359,7 @@ export function GameProvider({ children }) {
             socket.off('game-over');
             socket.off('game-reset');
         };
-    }, [room, speakRegionalDealer]);
+    }, [speakRegionalDealer]);
 
     const createRoom = useCallback((playerName, avatar) => {
         setError(null);

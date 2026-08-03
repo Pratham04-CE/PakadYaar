@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '../context/GameContext';
 import { REGIONAL_THEMES } from '../data/themes';
+import PlayerAvatar from '../components/PlayerAvatar';
 import wordsData from '../data/words.json';
 import sound from '../utils/sound';
 
@@ -219,16 +220,7 @@ export default function DiscussionPage() {
                       ${isMe ? 'bg-primary-500/25 border-primary-400/60 text-primary-200 font-bold' : 'bg-black/50 border-white/10 text-white/70'}`}
                   >
                     <span className={`text-[9px] font-black w-3.5 text-center ${idx === 0 ? 'text-amber-400' : 'text-white/40'}`}>{idx + 1}</span>
-                    <div
-                      className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0 overflow-hidden"
-                      style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}
-                    >
-                      {player.avatar?.image ? (
-                        <img src={player.avatar.image} alt="Avatar" className="w-full h-full object-cover" />
-                      ) : (
-                        player.avatar?.initial || player.name[0]
-                      )}
-                    </div>
+                    <PlayerAvatar avatar={player.avatar} name={player.name} className="w-5 h-5" textClassName="text-[9px]" />
                     <span className="max-w-[60px] truncate font-medium">{isMe ? 'You' : player.name}</span>
                   </div>
                 );
@@ -389,16 +381,7 @@ export default function DiscussionPage() {
                       {turnPos + 1}
                     </span>
                   )}
-                  <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0 overflow-hidden"
-                    style={{ backgroundColor: player.avatar?.color || '#7c3aed' }}
-                  >
-                    {player.avatar?.image ? (
-                      <img src={player.avatar.image} alt="Avatar" className="w-full h-full object-cover" />
-                    ) : (
-                      player.avatar?.initial || player.name[0]
-                    )}
-                  </div>
+                  <PlayerAvatar avatar={player.avatar} name={player.name} className="w-7 h-7" textClassName="text-xs" />
                   <div className="flex-1 min-w-0 flex items-center gap-1">
                     <span className={`text-xs font-semibold truncate max-w-[100px] ${isMe ? 'text-primary-200' : 'text-white'}`}>
                       {player.name}
