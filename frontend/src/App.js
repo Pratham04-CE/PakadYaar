@@ -56,16 +56,17 @@ function LeaveRoomButton() {
         </button>
       </div>
 
-      {/* Real-time Player Left Notification Banner */}
+      {/* Real-time Player Left Compact Toast Banner (Top Center above Card area) */}
       <AnimatePresence>
         {leaveNotification && (
           <motion.div
-            initial={{ opacity: 0, y: -40, scale: 0.9 }}
+            initial={{ opacity: 0, y: -20, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.9 }}
-            className="fixed top-16 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm bg-amber-500/20 border border-amber-500/40 backdrop-blur-md px-4 py-2 rounded-2xl shadow-2xl text-center text-amber-300 text-xs sm:text-sm font-semibold pointer-events-none"
+            className="fixed top-14 sm:top-16 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] bg-slate-950/95 border border-amber-400/80 backdrop-blur-md px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 text-amber-300 text-xs sm:text-sm font-bold pointer-events-none"
           >
-            ⚠️ {leaveNotification}
+            <span className="text-base animate-pulse">🚪</span>
+            <span className="truncate">{leaveNotification}</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -117,51 +118,6 @@ function LeaveRoomButton() {
   );
 }
 
-function SoundToggle() {
-  const [muted, setMuted] = useState(sound.isMuted());
-
-  function toggle() {
-    const isNowMuted = sound.toggleMute();
-    setMuted(isNowMuted);
-    if (!isNowMuted) sound.click();
-  }
-
-  return (
-    <button
-      onClick={toggle}
-      title={muted ? 'Unmute Sound' : 'Mute Sound'}
-      className="fixed top-3 right-3 z-50 w-10 h-10 rounded-full glass flex items-center justify-center text-lg shadow-lg border border-white/10 hover:border-white/30 transition-all active:scale-95 cursor-pointer select-none"
-      style={{ touchAction: 'manipulation' }}
-    >
-      {muted ? '🔇' : '🔊'}
-    </button>
-  );
-}
-
-function MicToggle() {
-  const { room, isMicOn, toggleMic } = useGame();
-
-  if (!room) return null;
-
-  return (
-    <button
-      onClick={() => { sound.click(); toggleMic(); }}
-      title={isMicOn ? 'Mute Microphone' : 'Turn On Microphone'}
-      style={{ touchAction: 'manipulation', right: '56px' }}
-      className={`
-        fixed top-3 z-50 w-10 h-10 rounded-full flex items-center justify-center text-lg shadow-lg border
-        transition-all active:scale-95 cursor-pointer select-none
-        ${isMicOn
-          ? 'bg-green-500/20 border-green-500/50 text-green-400 glow-teal animate-pulse'
-          : 'glass border-white/10 hover:border-white/30 text-white/40'
-        }
-      `}
-    >
-      {isMicOn ? '🎤' : '🎙️'}
-    </button>
-  );
-}
-
 function App() {
   return (
     <BrowserRouter>
@@ -169,10 +125,6 @@ function App() {
         <div className="min-h-screen bg-dark-900 relative">
           {/* Leave Room Button & Modal Integration */}
           <LeaveRoomButton />
-
-          {/* Sound & Mic Controls */}
-          <MicToggle />
-          <SoundToggle />
 
           {/* Ambient background orbs */}
           <div className="fixed inset-0 overflow-hidden pointer-events-none">

@@ -430,9 +430,13 @@ export function GameProvider({ children }) {
 
     const toggleMic = useCallback(async () => {
         if (!voiceChat.isInitialized()) {
+            voiceChat.muted = false;
             const stream = await voiceChat.startLocalStream();
             if (!stream) return;
             socket.emit('join-voice');
+            setIsMicOn(true);
+            socket.emit('voice-mute-status', { isMuted: false });
+            return;
         }
         const nowMuted = voiceChat.toggleMic();
         const nowOn = !nowMuted;

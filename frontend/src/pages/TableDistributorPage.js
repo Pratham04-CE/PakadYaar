@@ -8,7 +8,7 @@ import sound from '../utils/sound';
 export default function TableDistributorPage() {
   const {
     room, myWord, isHost, confirmWord, hasConfirmedWord, confirmedCount, startDiscussion,
-    myId, isMicOn, peerMutedMap, lobbyMessages, typingUsers, sendLobbyMessage, setTypingStatus, turnOrder
+    myId, isMicOn, toggleMic, peerMutedMap, lobbyMessages, typingUsers, sendLobbyMessage, setTypingStatus, turnOrder
   } = useGame();
 
   const [isCardFlipped, setIsCardFlipped] = useState(false);
@@ -77,6 +77,7 @@ export default function TableDistributorPage() {
       myId={myId}
       turnOrder={turnOrder}
       isMicOn={isMicOn}
+      toggleMic={toggleMic}
       peerMutedMap={peerMutedMap}
       lobbyMessages={lobbyMessages}
       typingUsers={typingUsers}
@@ -140,37 +141,52 @@ export default function TableDistributorPage() {
           </div>
         </div>
 
-        {/* User's Card Flip Box (Centered & Prominent) */}
+        {/* User's Card Flip Box (Full Playing Card Design) */}
         <motion.div
           whileTap={{ scale: 0.97 }}
           onClick={handleFlip}
           className={`
-            relative w-full max-w-[260px] sm:max-w-[280px] min-h-[260px] sm:min-h-[280px] rounded-3xl border-2 cursor-pointer overflow-hidden
-            transition-all duration-400 shadow-2xl p-5 flex flex-col items-center justify-center text-center backdrop-blur-md
-            ${isCardFlipped ? 'border-amber-400 bg-slate-900 shadow-amber-500/40' : 'border-amber-400 shadow-black/90'}
+            relative w-[230px] sm:w-[260px] h-[310px] sm:h-[350px] rounded-3xl border-2 border-amber-400/90 cursor-pointer overflow-hidden
+            transition-all duration-400 shadow-2xl flex flex-col items-center justify-between text-center select-none
+            ${isCardFlipped ? 'bg-slate-950/95 shadow-amber-500/30' : 'shadow-black/90 hover:scale-[1.02]'}
           `}
           style={{ 
             touchAction: 'manipulation',
-            backgroundImage: !isCardFlipped && cardBackImage ? `url(${cardBackImage})` : 'linear-gradient(to bottom right, #1e1b4b, #0f172a)',
+            backgroundImage: !isCardFlipped && cardBackImage ? `url(${cardBackImage})` : 'linear-gradient(to bottom right, #0f172a, #1e1b4b)',
             backgroundSize: 'cover',
             backgroundPosition: 'center'
           }}
         >
           <AnimatePresence mode="wait">
             {isCardFlipped ? (
-              <motion.div key="flipped" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="py-4 bg-slate-950/95 rounded-2xl p-4 border border-white/20 w-full">
-                <p className="text-xs text-amber-300 uppercase font-bold tracking-wider mb-2">Your Secret Word</p>
-                <p className="text-3xl font-black text-white tracking-wide my-2">{myWord?.word || 'Sample Word'}</p>
+              <motion.div
+                key="flipped"
+                initial={{ opacity: 0, rotateY: 90 }}
+                animate={{ opacity: 1, rotateY: 0 }}
+                exit={{ opacity: 0, rotateY: -90 }}
+                className="w-full h-full p-5 bg-slate-950/95 border border-white/20 rounded-3xl flex flex-col items-center justify-center space-y-3"
+              >
+                <p className="text-xs text-amber-300 uppercase font-extrabold tracking-wider">Your Secret Word</p>
+                <p className="text-3xl font-black text-white tracking-wide my-1">{myWord?.word || 'Sample Word'}</p>
                 {myWord?.isImposter ? (
-                  <span className="inline-block mt-3 text-xs bg-rose-600 text-white px-3.5 py-1 rounded-full font-bold shadow-lg">😈 You are the Imposter!</span>
+                  <span className="inline-block text-xs bg-rose-600 text-white px-4 py-1.5 rounded-full font-bold shadow-lg">😈 You are the Imposter!</span>
                 ) : (
-                  <span className="inline-block mt-3 text-xs bg-emerald-600 text-white px-3.5 py-1 rounded-full font-bold shadow-lg">🧑‍🤝‍🧑 Crew Member</span>
+                  <span className="inline-block text-xs bg-emerald-600 text-white px-4 py-1.5 rounded-full font-bold shadow-lg">🧑‍🤝‍🧑 Crew Member</span>
                 )}
               </motion.div>
             ) : (
-              <motion.div key="hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="py-12 flex flex-col items-center justify-center">
-                <div className="text-5xl mb-2">🎴</div>
-                <p className="text-white font-bold text-sm">Tap Card to Reveal Word</p>
+              <motion.div
+                key="hidden"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="w-full h-full flex flex-col justify-end p-3 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none"
+              >
+                <div className="bg-black/75 border border-amber-400/50 backdrop-blur-md rounded-2xl py-2 px-3 text-center shadow-lg">
+                  <p className="text-amber-300 font-extrabold text-xs tracking-wider flex items-center justify-center gap-1.5">
+                    <span>🎴</span> Tap Card to Reveal Word
+                  </p>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>

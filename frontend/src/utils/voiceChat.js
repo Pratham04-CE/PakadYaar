@@ -18,6 +18,7 @@ class VoiceChatManager {
     this.candidateQueues = new Map();  // peerId -> RTCIceCandidate[]
     this.audioElements = new Map();    // peerId -> HTMLAudioElement
     this.muted = false;
+    this.speakerMuted = false;
     this.initialized = false;
   }
 
@@ -75,6 +76,32 @@ class VoiceChatManager {
     return !!this.localStream;
   }
 
+  toggleSpeaker() {
+    this.speakerMuted = !this.speakerMuted;
+    this.audioElements.forEach(audioEl => {
+      audioEl.muted = this.speakerMuted;
+    });
+    return !this.speakerMuted; // true if speaker on
+  }
+
+  isSpeakerOn() {
+    return !this.speakerMuted;
+  }
+
+  togglePeerAudio(peerId) {
+    const audioEl = this.audioElements.get(peerId);
+    if (audioEl) {
+      audioEl.muted = !audioEl.muted;
+      return audioEl.muted; // true if peer muted by me
+    }
+    return false;
+  }
+
+  isPeerMuted(peerId) {
+    const audioEl = this.audioElements.get(peerId);
+    return audioEl ? audioEl.muted : false;
+  }
+
   async createPeerConnection(peerId, socket, isInitiator = false) {
     if (this.peerConnections.has(peerId)) {
       const existingPc = this.peerConnections.get(peerId);
@@ -124,6 +151,7 @@ class VoiceChatManager {
           audioEl.id = `remote-audio-${peerId}`;
           audioEl.autoplay = true;
           audioEl.playsInline = true;
+          audioEl.muted = this.speakerMuted;
           audioEl.style.display = 'none';
           document.body.appendChild(audioEl);
           this.audioElements.set(peerId, audioEl);

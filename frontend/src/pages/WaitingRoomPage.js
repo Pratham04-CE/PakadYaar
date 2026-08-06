@@ -36,7 +36,7 @@ const QUICK_EMOJIS = ['😀', '😂', '🔥', '👍', '😎', '🎉', '😱', '�
 export default function WaitingRoomPage() {
   const { 
     room, myId, isHost, updateConfig, startGame, error, 
-    isMicOn, peerMutedMap, lobbyMessages, typingUsers, 
+    lobbyMessages, typingUsers, 
     sendLobbyMessage, setTypingStatus, kickPlayer 
   } = useGame();
   
@@ -232,14 +232,6 @@ export default function WaitingRoomPage() {
                       )}
                     </div>
                   </div>
-
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 ${
-                    (player.id === myId ? isMicOn : peerMutedMap[player.id] === false)
-                      ? 'bg-green-500/20 text-green-400'
-                      : 'bg-white/5 text-white/30'
-                  }`}>
-                    {(player.id === myId ? isMicOn : peerMutedMap[player.id] === false) ? '🎤 Speaking' : '🔇 Muted'}
-                  </span>
 
                   {isHost && player.id !== myId && (
                     <button

@@ -149,4 +149,19 @@
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
   }
+
+  /* Active Speaking Vibration Animation */
+  @keyframes vibrate {
+    0% { transform: translate(0, 0) scale(1.05); }
+    20% { transform: translate(-2px, 2px) scale(1.06); }
+    40% { transform: translate(-2px, -2px) scale(1.05); }
+    60% { transform: translate(2px, 2px) scale(1.06); }
+    80% { transform: translate(2px, -2px) scale(1.05); }
+    100% { transform: translate(0, 0) scale(1.05); }
+  }
+
+  .animate-vibrate {
+    animation: vibrate 0.25s linear infinite;
+  }
 }
+

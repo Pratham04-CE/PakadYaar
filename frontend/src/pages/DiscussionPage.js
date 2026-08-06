@@ -39,7 +39,7 @@ function resolveWordInfo(myWord, roomConfig = {}) {
 
 export default function DiscussionPage() {
   const {
-    room, myWord, timer, myId, drawMessage, isMicOn,
+    room, myWord, timer, myId, drawMessage, isMicOn, toggleMic,
     peerMutedMap, isCardDisabled, lobbyMessages, typingUsers,
     sendLobbyMessage, setTypingStatus, turnOrder
   } = useGame();
@@ -87,6 +87,7 @@ export default function DiscussionPage() {
       myId={myId}
       turnOrder={turnOrder}
       isMicOn={isMicOn}
+      toggleMic={toggleMic}
       peerMutedMap={peerMutedMap}
       lobbyMessages={lobbyMessages}
       typingUsers={typingUsers}
@@ -133,9 +134,9 @@ export default function DiscussionPage() {
           </div>
         </div>
 
-        {/* User's Secret Card (Centered & Prominent) */}
-        <div className="glass p-5 rounded-3xl shadow-2xl flex flex-col items-center w-full max-w-[280px] sm:max-w-[310px]">
-          <p className="text-xs uppercase text-white/80 tracking-wider mb-2 font-extrabold text-center">
+        {/* User's Secret Card (Full Playing Card Design) */}
+        <div className="flex flex-col items-center w-full max-w-[240px] sm:max-w-[270px]">
+          <p className="text-xs uppercase text-amber-300 tracking-wider mb-2 font-extrabold text-center drop-shadow-md">
             🃏 Your Secret Card
           </p>
 
@@ -147,12 +148,14 @@ export default function DiscussionPage() {
             <div className="w-full flex flex-col items-center">
               <motion.div
                 onClick={() => { sound.cardFlip(); setIsCardRevealed(v => !v); }}
-                className={`w-full min-h-[220px] sm:min-h-[240px] p-5 rounded-3xl cursor-pointer border-2 transition-all duration-300 flex flex-col items-center justify-center text-center shadow-2xl ${
-                  isCardRevealed ? 'border-amber-400 bg-slate-900/95' : 'border-amber-400/80'
-                }`}
+                className={`
+                  relative w-[220px] sm:w-[250px] h-[290px] sm:h-[330px] rounded-3xl cursor-pointer border-2 border-amber-400/90 overflow-hidden
+                  transition-all duration-300 flex flex-col items-center justify-between text-center shadow-2xl select-none
+                  ${isCardRevealed ? 'bg-slate-950/95 shadow-amber-500/30' : 'shadow-black/90 hover:scale-[1.02]'}
+                `}
                 style={{
                   touchAction: 'manipulation',
-                  backgroundImage: !isCardRevealed && cardBackImage ? `url(${cardBackImage})` : 'linear-gradient(to bottom right, #1e1b4b, #0f172a)',
+                  backgroundImage: !isCardRevealed && cardBackImage ? `url(${cardBackImage})` : 'linear-gradient(to bottom right, #0f172a, #1e1b4b)',
                   backgroundSize: 'cover',
                   backgroundPosition: 'center'
                 }}
@@ -162,18 +165,18 @@ export default function DiscussionPage() {
                   {isCardRevealed && wordInfo ? (
                     <motion.div
                       key="revealed"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="py-4 bg-slate-950/95 rounded-2xl p-4 border border-white/20 w-full flex flex-col items-center justify-center"
+                      initial={{ opacity: 0, rotateY: 90 }}
+                      animate={{ opacity: 1, rotateY: 0 }}
+                      exit={{ opacity: 0, rotateY: -90 }}
+                      className="w-full h-full p-4 bg-slate-950/95 border border-white/20 rounded-3xl flex flex-col items-center justify-center space-y-2"
                     >
                       <div className="text-2xl sm:text-3xl font-black text-white break-words">{wordInfo.word}</div>
                       {myWord?.isImposter ? (
-                        <span className="inline-block mt-2 text-xs bg-rose-600 text-white px-3 py-0.5 rounded-full font-bold shadow">
+                        <span className="inline-block mt-2 text-xs bg-rose-600 text-white px-3.5 py-1 rounded-full font-bold shadow">
                           😈 Imposter Card
                         </span>
                       ) : (
-                        <span className="inline-block mt-2 text-xs bg-emerald-600 text-white px-3 py-0.5 rounded-full font-bold shadow">
+                        <span className="inline-block mt-2 text-xs bg-emerald-600 text-white px-3.5 py-1 rounded-full font-bold shadow">
                           🧑‍🤝‍🧑 Crew Member
                         </span>
                       )}
@@ -184,10 +187,13 @@ export default function DiscussionPage() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      className="py-8 flex flex-col items-center justify-center"
+                      className="w-full h-full flex flex-col justify-end p-3 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none"
                     >
-                      <div className="text-5xl mb-2">🎴</div>
-                      <p className="text-white font-bold text-xs sm:text-sm">Tap to Reveal Word</p>
+                      <div className="bg-black/75 border border-amber-400/50 backdrop-blur-md rounded-2xl py-2 px-3 text-center shadow-lg">
+                        <p className="text-amber-300 font-extrabold text-xs tracking-wider flex items-center justify-center gap-1.5">
+                          <span>🎴</span> Tap Card to Reveal Word
+                        </p>
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
